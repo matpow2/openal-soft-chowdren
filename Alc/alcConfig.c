@@ -253,6 +253,13 @@ void ReadALConfig(void)
             fclose(f);
         }
     }
+    /* Also load config files from the current working directory */
+    f = fopen("alsoft.conf", "r");
+    if(f)
+    {
+        LoadConfigFromFile(f);
+        fclose(f);
+    }
 }
 
 void FreeALConfig(void)
