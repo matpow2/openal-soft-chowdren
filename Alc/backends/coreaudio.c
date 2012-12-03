@@ -287,7 +287,6 @@ static ALCboolean ca_reset_playback(ALCdevice *device)
             streamFormat.mBytesPerFrame = streamFormat.mChannelsPerFrame;
             break;
         case DevFmtUShort:
-        case DevFmtFloat:
             device->FmtType = DevFmtShort;
             /* fall-through */
         case DevFmtShort:
@@ -299,15 +298,23 @@ static ALCboolean ca_reset_playback(ALCdevice *device)
             device->FmtType = DevFmtInt;
             /* fall-through */
         case DevFmtInt:
+        case DevFmtFloat:
             streamFormat.mBitsPerChannel = 32;
-            streamFormat.mBytesPerPacket = 2 * streamFormat.mChannelsPerFrame;
-            streamFormat.mBytesPerFrame = 2 * streamFormat.mChannelsPerFrame;
+            streamFormat.mBytesPerPacket = 4 * streamFormat.mChannelsPerFrame;
+            streamFormat.mBytesPerFrame = 4 * streamFormat.mChannelsPerFrame;
             break;
     }
     streamFormat.mFormatID = kAudioFormatLinearPCM;
-    streamFormat.mFormatFlags = kLinearPCMFormatFlagIsSignedInteger |
-                                kAudioFormatFlagsNativeEndian |
+    streamFormat.mFormatFlags = kAudioFormatFlagsNativeEndian |
                                 kLinearPCMFormatFlagIsPacked;
+    if (device->FmtType == DevFmtFloat)
+    {
+        streamFormat.mFormatFlags |= kLinearPCMFormatFlagIsFloat;
+    }
+    else
+    {
+        streamFormat.mFormatFlags |= kLinearPCMFormatFlagIsSignedInteger;
+    }
 
     err = AudioUnitSetProperty(data->audioUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &streamFormat, sizeof(AudioStreamBasicDescription));
     if(err != noErr)
