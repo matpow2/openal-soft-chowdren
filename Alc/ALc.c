@@ -1870,14 +1870,14 @@ static ALCvoid FreeContext(ALCcontext *context)
 
     if(context->SourceMap.size > 0)
     {
-        ERR("(%p) Deleting %d Source(s)\n", context, context->SourceMap.size);
+        WARN("(%p) Deleting %d Source(s)\n", context, context->SourceMap.size);
         ReleaseALSources(context);
     }
     ResetUIntMap(&context->SourceMap);
 
     if(context->EffectSlotMap.size > 0)
     {
-        ERR("(%p) Deleting %d AuxiliaryEffectSlot(s)\n", context, context->EffectSlotMap.size);
+        WARN("(%p) Deleting %d AuxiliaryEffectSlot(s)\n", context, context->EffectSlotMap.size);
         ReleaseALAuxiliaryEffectSlots(context);
     }
     ResetUIntMap(&context->EffectSlotMap);
@@ -2474,7 +2474,11 @@ ALC_API ALCcontext* ALC_APIENTRY alcCreateContext(ALCdevice *device, const ALCin
         UnlockLists();
         alcSetError(device, err);
         if(err == ALC_INVALID_DEVICE)
+        {
+            ALCdevice_Lock(device);
             aluHandleDisconnect(device);
+            ALCdevice_Unlock(device);
+        }
         ALCdevice_DecRef(device);
         return NULL;
     }
@@ -2977,7 +2981,7 @@ ALC_API ALCdevice* ALC_APIENTRY alcCaptureOpenDevice(const ALCchar *deviceName, 
         device->next = DeviceList;
     } while(!CompExchangePtr((XchgPtr*)&DeviceList, device->next, device));
 
-    TRACE("Created device %p\n", device);
+    TRACE("Created device %p, \"%s\"\n", device, device->DeviceName);
     return device;
 }
 

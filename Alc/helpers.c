@@ -24,6 +24,9 @@
 #include <time.h>
 #include <errno.h>
 #include <stdarg.h>
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif
 
 #if defined(HAVE_GUIDDEF_H) || defined(HAVE_INITGUID_H)
 #define INITGUID
