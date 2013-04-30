@@ -53,13 +53,295 @@ static ALdouble GetSourceSecOffset(const ALsource *Source);
 static ALvoid GetSourceOffsets(const ALsource *Source, ALenum name, ALdouble *offsets, ALdouble updateLen);
 static ALint GetSampleOffset(ALsource *Source);
 
-static ALenum SetSourcefv(ALsource *Source, ALCcontext *Context, ALenum name, const ALfloat *values);
-static ALenum SetSourceiv(ALsource *Source, ALCcontext *Context, ALenum name, const ALint *values);
-static ALenum SetSourcei64v(ALsource *Source, ALCcontext *Context, ALenum name, const ALint64SOFT *values);
+typedef enum SrcFloatProp {
+    sfPitch = AL_PITCH,
+    sfGain = AL_GAIN,
+    sfMinGain = AL_MIN_GAIN,
+    sfMaxGain = AL_MAX_GAIN,
+    sfMaxDistance = AL_MAX_DISTANCE,
+    sfRolloffFactor = AL_ROLLOFF_FACTOR,
+    sfDopplerFactor = AL_DOPPLER_FACTOR,
+    sfConeOuterGain = AL_CONE_OUTER_GAIN,
+    sfSecOffset = AL_SEC_OFFSET,
+    sfSampleOffset = AL_SAMPLE_OFFSET,
+    sfByteOffset = AL_BYTE_OFFSET,
+    sfConeInnerAngle = AL_CONE_INNER_ANGLE,
+    sfConeOuterAngle = AL_CONE_OUTER_ANGLE,
+    sfRefDistance = AL_REFERENCE_DISTANCE,
 
-static ALenum GetSourcedv(const ALsource *Source, ALCcontext *Context, ALenum name, ALdouble *values);
-static ALenum GetSourceiv(const ALsource *Source, ALCcontext *Context, ALenum name, ALint *values);
-static ALenum GetSourcei64v(const ALsource *Source, ALCcontext *Context, ALenum name, ALint64 *values);
+    sfPosition = AL_POSITION,
+    sfVelocity = AL_VELOCITY,
+    sfDirection = AL_DIRECTION,
+
+    sfSourceRelative = AL_SOURCE_RELATIVE,
+    sfLooping = AL_LOOPING,
+    sfBuffer = AL_BUFFER,
+    sfSourceState = AL_SOURCE_STATE,
+    sfBuffersQueued = AL_BUFFERS_QUEUED,
+    sfBuffersProcessed = AL_BUFFERS_PROCESSED,
+    sfSourceType = AL_SOURCE_TYPE,
+
+    /* ALC_EXT_EFX */
+    sfConeOuterGainHF = AL_CONE_OUTER_GAINHF,
+    sfAirAbsorptionFactor = AL_AIR_ABSORPTION_FACTOR,
+    sfRoomRolloffFactor =  AL_ROOM_ROLLOFF_FACTOR,
+    sfDirectFilterGainHFAuto = AL_DIRECT_FILTER_GAINHF_AUTO,
+    sfAuxSendFilterGainAuto = AL_AUXILIARY_SEND_FILTER_GAIN_AUTO,
+    sfAuxSendFilterGainHFAuto = AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO,
+
+    /* AL_SOFT_direct_channels */
+    sfDirectChannelsSOFT = AL_DIRECT_CHANNELS_SOFT,
+
+    /* AL_EXT_source_distance_model */
+    sfDistanceModel = AL_DISTANCE_MODEL,
+
+    /* AL_SOFT_buffer_sub_data / AL_SOFT_buffer_samples */
+    sfSampleRWOffsetsSOFT = AL_SAMPLE_RW_OFFSETS_SOFT,
+    sfByteRWOffsetsSOFT = AL_BYTE_RW_OFFSETS_SOFT,
+
+    /* AL_SOFT_source_latency */
+    sfSecOffsetLatencySOFT = AL_SEC_OFFSET_LATENCY_SOFT,
+} SrcFloatProp;
+
+typedef enum SrcIntProp {
+    siMaxDistance = AL_MAX_DISTANCE,
+    siRolloffFactor = AL_ROLLOFF_FACTOR,
+    siRefDistance = AL_REFERENCE_DISTANCE,
+    siSourceRelative = AL_SOURCE_RELATIVE,
+    siConeInnerAngle = AL_CONE_INNER_ANGLE,
+    siConeOuterAngle = AL_CONE_OUTER_ANGLE,
+    siLooping = AL_LOOPING,
+    siBuffer = AL_BUFFER,
+    siSourceState = AL_SOURCE_STATE,
+    siBuffersQueued = AL_BUFFERS_QUEUED,
+    siBuffersProcessed = AL_BUFFERS_PROCESSED,
+    siSourceType = AL_SOURCE_TYPE,
+    siSecOffset = AL_SEC_OFFSET,
+    siSampleOffset = AL_SAMPLE_OFFSET,
+    siByteOffset = AL_BYTE_OFFSET,
+    siDopplerFactor = AL_DOPPLER_FACTOR,
+    siPosition = AL_POSITION,
+    siVelocity = AL_VELOCITY,
+    siDirection = AL_DIRECTION,
+
+    /* ALC_EXT_EFX */
+    siDirectFilterGainHFAuto = AL_DIRECT_FILTER_GAINHF_AUTO,
+    siAuxSendFilterGainAutio = AL_AUXILIARY_SEND_FILTER_GAIN_AUTO,
+    siAuxSendFilterGainHFAuto = AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO,
+    siDirectFilter = AL_DIRECT_FILTER,
+    siAuxSendFilter = AL_AUXILIARY_SEND_FILTER,
+
+    /* AL_SOFT_direct_channels */
+    siDirectChannelsSOFT = AL_DIRECT_CHANNELS_SOFT,
+
+    /* AL_EXT_source_distance_model */
+    siDistanceModel = AL_DISTANCE_MODEL,
+
+    /* AL_SOFT_buffer_sub_data / AL_SOFT_buffer_samples */
+    siSampleRWOffsetsSOFT = AL_SAMPLE_RW_OFFSETS_SOFT,
+    siByteRWOffsetsSOFT = AL_BYTE_RW_OFFSETS_SOFT,
+
+    /* AL_SOFT_source_latency */
+    siSampleOffsetLatencySOFT = AL_SAMPLE_OFFSET_LATENCY_SOFT,
+} SrcIntProp;
+
+static ALenum SetSourcefv(ALsource *Source, ALCcontext *Context, SrcFloatProp prop, const ALfloat *values);
+static ALenum SetSourceiv(ALsource *Source, ALCcontext *Context, SrcIntProp prop, const ALint *values);
+static ALenum SetSourcei64v(ALsource *Source, ALCcontext *Context, SrcIntProp prop, const ALint64SOFT *values);
+
+static ALenum GetSourcedv(const ALsource *Source, ALCcontext *Context, SrcFloatProp prop, ALdouble *values);
+static ALenum GetSourceiv(const ALsource *Source, ALCcontext *Context, SrcIntProp prop, ALint *values);
+static ALenum GetSourcei64v(const ALsource *Source, ALCcontext *Context, SrcIntProp prop, ALint64 *values);
+
+static ALint FloatValsByProp(ALenum prop)
+{
+    if(prop != (ALenum)((SrcFloatProp)prop))
+        return 0;
+    switch((SrcFloatProp)prop)
+    {
+        case sfPitch:
+        case sfGain:
+        case sfMinGain:
+        case sfMaxGain:
+        case sfMaxDistance:
+        case sfRolloffFactor:
+        case sfDopplerFactor:
+        case sfConeOuterGain:
+        case sfSecOffset:
+        case sfSampleOffset:
+        case sfByteOffset:
+        case sfConeInnerAngle:
+        case sfConeOuterAngle:
+        case sfRefDistance:
+        case sfConeOuterGainHF:
+        case sfAirAbsorptionFactor:
+        case sfRoomRolloffFactor:
+        case sfDirectFilterGainHFAuto:
+        case sfAuxSendFilterGainAuto:
+        case sfAuxSendFilterGainHFAuto:
+        case sfDirectChannelsSOFT:
+        case sfDistanceModel:
+        case sfSourceRelative:
+        case sfLooping:
+        case sfBuffer:
+        case sfSourceState:
+        case sfBuffersQueued:
+        case sfBuffersProcessed:
+        case sfSourceType:
+            return 1;
+
+        case sfSampleRWOffsetsSOFT:
+        case sfByteRWOffsetsSOFT:
+            return 2;
+
+        case sfPosition:
+        case sfVelocity:
+        case sfDirection:
+            return 3;
+
+        case sfSecOffsetLatencySOFT:
+            break; /* Double only */
+    }
+    return 0;
+}
+static ALint DoubleValsByProp(ALenum prop)
+{
+    if(prop != (ALenum)((SrcFloatProp)prop))
+        return 0;
+    switch((SrcFloatProp)prop)
+    {
+        case sfPitch:
+        case sfGain:
+        case sfMinGain:
+        case sfMaxGain:
+        case sfMaxDistance:
+        case sfRolloffFactor:
+        case sfDopplerFactor:
+        case sfConeOuterGain:
+        case sfSecOffset:
+        case sfSampleOffset:
+        case sfByteOffset:
+        case sfConeInnerAngle:
+        case sfConeOuterAngle:
+        case sfRefDistance:
+        case sfConeOuterGainHF:
+        case sfAirAbsorptionFactor:
+        case sfRoomRolloffFactor:
+        case sfDirectFilterGainHFAuto:
+        case sfAuxSendFilterGainAuto:
+        case sfAuxSendFilterGainHFAuto:
+        case sfDirectChannelsSOFT:
+        case sfDistanceModel:
+        case sfSourceRelative:
+        case sfLooping:
+        case sfBuffer:
+        case sfSourceState:
+        case sfBuffersQueued:
+        case sfBuffersProcessed:
+        case sfSourceType:
+            return 1;
+
+        case sfSampleRWOffsetsSOFT:
+        case sfByteRWOffsetsSOFT:
+        case sfSecOffsetLatencySOFT:
+            return 2;
+
+        case sfPosition:
+        case sfVelocity:
+        case sfDirection:
+            return 3;
+    }
+    return 0;
+}
+
+static ALint IntValsByProp(ALenum prop)
+{
+    if(prop != (ALenum)((SrcIntProp)prop))
+        return 0;
+    switch((SrcIntProp)prop)
+    {
+        case siMaxDistance:
+        case siRolloffFactor:
+        case siRefDistance:
+        case siSourceRelative:
+        case siConeInnerAngle:
+        case siConeOuterAngle:
+        case siLooping:
+        case siBuffer:
+        case siSourceState:
+        case siBuffersQueued:
+        case siBuffersProcessed:
+        case siSourceType:
+        case siSecOffset:
+        case siSampleOffset:
+        case siByteOffset:
+        case siDopplerFactor:
+        case siDirectFilterGainHFAuto:
+        case siAuxSendFilterGainAutio:
+        case siAuxSendFilterGainHFAuto:
+        case siDirectFilter:
+        case siDirectChannelsSOFT:
+        case siDistanceModel:
+            return 1;
+
+        case siSampleRWOffsetsSOFT:
+        case siByteRWOffsetsSOFT:
+            return 2;
+
+        case siPosition:
+        case siVelocity:
+        case siDirection:
+        case siAuxSendFilter:
+            return 3;
+
+        case siSampleOffsetLatencySOFT:
+            break; /* i64 only */
+    }
+    return 0;
+}
+static ALint Int64ValsByProp(ALenum prop)
+{
+    if(prop != (ALenum)((SrcIntProp)prop))
+        return 0;
+    switch((SrcIntProp)prop)
+    {
+        case siMaxDistance:
+        case siRolloffFactor:
+        case siRefDistance:
+        case siSourceRelative:
+        case siConeInnerAngle:
+        case siConeOuterAngle:
+        case siLooping:
+        case siBuffer:
+        case siSourceState:
+        case siBuffersQueued:
+        case siBuffersProcessed:
+        case siSourceType:
+        case siSecOffset:
+        case siSampleOffset:
+        case siByteOffset:
+        case siDopplerFactor:
+        case siDirectFilterGainHFAuto:
+        case siAuxSendFilterGainAutio:
+        case siAuxSendFilterGainHFAuto:
+        case siDirectFilter:
+        case siDirectChannelsSOFT:
+        case siDistanceModel:
+            return 1;
+
+        case siSampleRWOffsetsSOFT:
+        case siByteRWOffsetsSOFT:
+        case siSampleOffsetLatencySOFT:
+            return 2;
+
+        case siPosition:
+        case siVelocity:
+        case siDirection:
+        case siAuxSendFilter:
+            return 3;
+    }
+    return 0;
+}
 
 
 #define RETERR(x) do {                                                        \
@@ -72,107 +354,109 @@ static ALenum GetSourcei64v(const ALsource *Source, ALCcontext *Context, ALenum 
         RETERR(AL_INVALID_VALUE);                                             \
 } while(0)
 
-static ALenum SetSourcefv(ALsource *Source, ALCcontext *Context, ALenum name, const ALfloat *values)
+static ALenum SetSourcefv(ALsource *Source, ALCcontext *Context, SrcFloatProp prop, const ALfloat *values)
 {
-    switch(name)
+    ALint ival;
+
+    switch(prop)
     {
         case AL_PITCH:
             CHECKVAL(*values >= 0.0f);
 
             Source->Pitch = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_CONE_INNER_ANGLE:
             CHECKVAL(*values >= 0.0f && *values <= 360.0f);
 
             Source->InnerAngle = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_CONE_OUTER_ANGLE:
             CHECKVAL(*values >= 0.0f && *values <= 360.0f);
 
             Source->OuterAngle = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_GAIN:
             CHECKVAL(*values >= 0.0f);
 
             Source->Gain = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_MAX_DISTANCE:
             CHECKVAL(*values >= 0.0f);
 
             Source->MaxDistance = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_ROLLOFF_FACTOR:
             CHECKVAL(*values >= 0.0f);
 
             Source->RollOffFactor = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_REFERENCE_DISTANCE:
             CHECKVAL(*values >= 0.0f);
 
             Source->RefDistance = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_MIN_GAIN:
             CHECKVAL(*values >= 0.0f && *values <= 1.0f);
 
             Source->MinGain = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_MAX_GAIN:
             CHECKVAL(*values >= 0.0f && *values <= 1.0f);
 
             Source->MaxGain = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_CONE_OUTER_GAIN:
             CHECKVAL(*values >= 0.0f && *values <= 1.0f);
 
             Source->OuterGain = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_CONE_OUTER_GAINHF:
             CHECKVAL(*values >= 0.0f && *values <= 1.0f);
 
             Source->OuterGainHF = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_AIR_ABSORPTION_FACTOR:
             CHECKVAL(*values >= 0.0f && *values <= 10.0f);
 
             Source->AirAbsorptionFactor = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_ROOM_ROLLOFF_FACTOR:
             CHECKVAL(*values >= 0.0f && *values <= 10.0f);
 
             Source->RoomRolloffFactor = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_DOPPLER_FACTOR:
             CHECKVAL(*values >= 0.0f && *values <= 1.0f);
 
             Source->DopplerFactor = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_SEC_OFFSET:
         case AL_SAMPLE_OFFSET:
@@ -180,7 +464,7 @@ static ALenum SetSourcefv(ALsource *Source, ALCcontext *Context, ALenum name, co
             CHECKVAL(*values >= 0.0f);
 
             LockContext(Context);
-            Source->OffsetType = name;
+            Source->OffsetType = prop;
             Source->Offset = *values;
 
             if((Source->state == AL_PLAYING || Source->state == AL_PAUSED) &&
@@ -193,7 +477,7 @@ static ALenum SetSourcefv(ALsource *Source, ALCcontext *Context, ALenum name, co
                 }
             }
             UnlockContext(Context);
-            break;
+            return AL_NO_ERROR;
 
 
         case AL_SEC_OFFSET_LATENCY_SOFT:
@@ -210,7 +494,7 @@ static ALenum SetSourcefv(ALsource *Source, ALCcontext *Context, ALenum name, co
             Source->Position[2] = values[2];
             UnlockContext(Context);
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_VELOCITY:
             CHECKVAL(isfinite(values[0]) && isfinite(values[1]) && isfinite(values[2]));
@@ -221,7 +505,7 @@ static ALenum SetSourcefv(ALsource *Source, ALCcontext *Context, ALenum name, co
             Source->Velocity[2] = values[2];
             UnlockContext(Context);
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_DIRECTION:
             CHECKVAL(isfinite(values[0]) && isfinite(values[1]) && isfinite(values[2]));
@@ -232,16 +516,38 @@ static ALenum SetSourcefv(ALsource *Source, ALCcontext *Context, ALenum name, co
             Source->Orientation[2] = values[2];
             UnlockContext(Context);
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
-        default:
-            RETERR(AL_INVALID_ENUM);
+
+        case sfSampleRWOffsetsSOFT:
+        case sfByteRWOffsetsSOFT:
+            RETERR(AL_INVALID_OPERATION);
+
+
+        case sfSourceRelative:
+        case sfLooping:
+        case sfSourceState:
+        case sfSourceType:
+        case sfDistanceModel:
+        case sfDirectFilterGainHFAuto:
+        case sfAuxSendFilterGainAuto:
+        case sfAuxSendFilterGainHFAuto:
+        case sfDirectChannelsSOFT:
+            ival = (ALint)values[0];
+            return SetSourceiv(Source, Context, prop, &ival);
+
+        case sfBuffer:
+        case sfBuffersQueued:
+        case sfBuffersProcessed:
+            ival = (ALint)((ALuint)values[0]);
+            return SetSourceiv(Source, Context, prop, &ival);
     }
 
-    return AL_NO_ERROR;
+    ERR("Unexpected property: 0x%04x\n", prop);
+    RETERR(AL_INVALID_ENUM);
 }
 
-static ALenum SetSourceiv(ALsource *Source, ALCcontext *Context, ALenum name, const ALint *values)
+static ALenum SetSourceiv(ALsource *Source, ALCcontext *Context, SrcIntProp prop, const ALint *values)
 {
     ALCdevice *device = Context->Device;
     ALbuffer  *buffer = NULL;
@@ -249,22 +555,21 @@ static ALenum SetSourceiv(ALsource *Source, ALCcontext *Context, ALenum name, co
     ALeffectslot *slot = NULL;
     ALbufferlistitem *oldlist;
     ALfloat fvals[3];
-    ALenum  err;
 
-    switch(name)
+    switch(prop)
     {
         case AL_SOURCE_RELATIVE:
             CHECKVAL(*values == AL_FALSE || *values == AL_TRUE);
 
             Source->HeadRelative = (ALboolean)*values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_LOOPING:
             CHECKVAL(*values == AL_FALSE || *values == AL_TRUE);
 
             Source->Looping = (ALboolean)*values;
-            break;
+            return AL_NO_ERROR;
 
         case AL_BUFFER:
             CHECKVAL(*values == 0 || (buffer=LookupBuffer(device, *values)) != NULL);
@@ -324,9 +629,12 @@ static ALenum SetSourceiv(ALsource *Source, ALCcontext *Context, ALenum name, co
                 free(temp);
             }
             UnlockContext(Context);
-            break;
+            return AL_NO_ERROR;
 
-        case AL_SOURCE_STATE:
+        case siSourceState:
+        case siSourceType:
+        case siBuffersQueued:
+        case siBuffersProcessed:
             /* Query only */
             RETERR(AL_INVALID_OPERATION);
 
@@ -336,7 +644,7 @@ static ALenum SetSourceiv(ALsource *Source, ALCcontext *Context, ALenum name, co
             CHECKVAL(*values >= 0);
 
             LockContext(Context);
-            Source->OffsetType = name;
+            Source->OffsetType = prop;
             Source->Offset = *values;
 
             if((Source->state == AL_PLAYING || Source->state == AL_PAUSED) &&
@@ -349,7 +657,14 @@ static ALenum SetSourceiv(ALsource *Source, ALCcontext *Context, ALenum name, co
                 }
             }
             UnlockContext(Context);
-            break;
+            return AL_NO_ERROR;
+
+
+        case siSampleRWOffsetsSOFT:
+        case siByteRWOffsetsSOFT:
+            /* Query only */
+            RETERR(AL_INVALID_OPERATION);
+
 
         case AL_DIRECT_FILTER:
             CHECKVAL(*values == 0 || (filter=LookupFilter(device, *values)) != NULL);
@@ -367,35 +682,35 @@ static ALenum SetSourceiv(ALsource *Source, ALCcontext *Context, ALenum name, co
             }
             UnlockContext(Context);
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_DIRECT_FILTER_GAINHF_AUTO:
             CHECKVAL(*values == AL_FALSE || *values == AL_TRUE);
 
             Source->DryGainHFAuto = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_AUXILIARY_SEND_FILTER_GAIN_AUTO:
             CHECKVAL(*values == AL_FALSE || *values == AL_TRUE);
 
             Source->WetGainAuto = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO:
             CHECKVAL(*values == AL_FALSE || *values == AL_TRUE);
 
             Source->WetGainHFAuto = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_DIRECT_CHANNELS_SOFT:
             CHECKVAL(*values == AL_FALSE || *values == AL_TRUE);
 
             Source->DirectChannels = *values;
             Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
         case AL_DISTANCE_MODEL:
             CHECKVAL(*values == AL_NONE ||
@@ -409,7 +724,7 @@ static ALenum SetSourceiv(ALsource *Source, ALCcontext *Context, ALenum name, co
             Source->DistanceModel = *values;
             if(Context->SourceDistanceModel)
                 Source->NeedsUpdate = AL_TRUE;
-            break;
+            return AL_NO_ERROR;
 
 
         case AL_AUXILIARY_SEND_FILTER:
@@ -440,7 +755,7 @@ static ALenum SetSourceiv(ALsource *Source, ALCcontext *Context, ALenum name, co
             }
             Source->NeedsUpdate = AL_TRUE;
             UnlockContext(Context);
-            break;
+            return AL_NO_ERROR;
 
 
         case AL_MAX_DISTANCE:
@@ -448,10 +763,9 @@ static ALenum SetSourceiv(ALsource *Source, ALCcontext *Context, ALenum name, co
         case AL_CONE_INNER_ANGLE:
         case AL_CONE_OUTER_ANGLE:
         case AL_REFERENCE_DISTANCE:
+        case siDopplerFactor:
             fvals[0] = (ALfloat)*values;
-            if((err=SetSourcefv(Source, Context, name, fvals)) != AL_NO_ERROR)
-                return err;
-            break;
+            return SetSourcefv(Source, Context, (int)prop, fvals);
 
         case AL_POSITION:
         case AL_VELOCITY:
@@ -459,26 +773,27 @@ static ALenum SetSourceiv(ALsource *Source, ALCcontext *Context, ALenum name, co
             fvals[0] = (ALfloat)values[0];
             fvals[1] = (ALfloat)values[1];
             fvals[2] = (ALfloat)values[2];
-            if((err=SetSourcefv(Source, Context, name, fvals)) != AL_NO_ERROR)
-                return err;
-            break;
+            return SetSourcefv(Source, Context, (int)prop, fvals);
 
-        default:
-            RETERR(AL_INVALID_ENUM);
+        case siSampleOffsetLatencySOFT:
+            /* i64 only */
+            break;
     }
 
-    return AL_NO_ERROR;
+    ERR("Unexpected property: 0x%04x\n", prop);
+    RETERR(AL_INVALID_ENUM);
 }
 
-static ALenum SetSourcei64v(ALsource *Source, ALCcontext *Context, ALenum name, const ALint64SOFT *values)
+static ALenum SetSourcei64v(ALsource *Source, ALCcontext *Context, SrcIntProp prop, const ALint64SOFT *values)
 {
     ALfloat fvals[3];
     ALint   ivals[3];
-    ALenum err;
 
-    switch(name)
+    switch(prop)
     {
-        case AL_SAMPLE_OFFSET_LATENCY_SOFT:
+        case siSampleRWOffsetsSOFT:
+        case siByteRWOffsetsSOFT:
+        case siSampleOffsetLatencySOFT:
             /* Query only */
             RETERR(AL_INVALID_OPERATION);
 
@@ -489,6 +804,9 @@ static ALenum SetSourcei64v(ALsource *Source, ALCcontext *Context, ALenum name, 
         case AL_SOURCE_STATE:
         case AL_BYTE_OFFSET:
         case AL_SAMPLE_OFFSET:
+        case siSourceType:
+        case siBuffersQueued:
+        case siBuffersProcessed:
         case AL_DIRECT_FILTER_GAINHF_AUTO:
         case AL_AUXILIARY_SEND_FILTER_GAIN_AUTO:
         case AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO:
@@ -497,9 +815,7 @@ static ALenum SetSourcei64v(ALsource *Source, ALCcontext *Context, ALenum name, 
             CHECKVAL(*values <= INT_MAX && *values >= INT_MIN);
 
             ivals[0] = (ALint)*values;
-            if((err=SetSourceiv(Source, Context, name, ivals)))
-                return err;
-            break;
+            return SetSourceiv(Source, Context, (int)prop, ivals);
 
         /* 1x uint */
         case AL_BUFFER:
@@ -507,9 +823,7 @@ static ALenum SetSourcei64v(ALsource *Source, ALCcontext *Context, ALenum name, 
             CHECKVAL(*values <= UINT_MAX && *values >= 0);
 
             ivals[0] = (ALuint)*values;
-            if((err=SetSourceiv(Source, Context, name, ivals)))
-                return err;
-            break;
+            return SetSourceiv(Source, Context, (int)prop, ivals);
 
         /* 3x uint */
         case AL_AUXILIARY_SEND_FILTER:
@@ -520,9 +834,7 @@ static ALenum SetSourcei64v(ALsource *Source, ALCcontext *Context, ALenum name, 
             ivals[0] = (ALuint)values[0];
             ivals[1] = (ALuint)values[1];
             ivals[2] = (ALuint)values[2];
-            if((err=SetSourceiv(Source, Context, name, ivals)))
-                return err;
-            break;
+            return SetSourceiv(Source, Context, (int)prop, ivals);
 
         /* 1x float */
         case AL_MAX_DISTANCE:
@@ -531,10 +843,9 @@ static ALenum SetSourcei64v(ALsource *Source, ALCcontext *Context, ALenum name, 
         case AL_CONE_OUTER_ANGLE:
         case AL_REFERENCE_DISTANCE:
         case AL_SEC_OFFSET:
+        case siDopplerFactor:
             fvals[0] = (ALfloat)*values;
-            if((err=SetSourcefv(Source, Context, name, fvals)) != AL_NO_ERROR)
-                return err;
-            break;
+            return SetSourcefv(Source, Context, (int)prop, fvals);
 
         /* 3x float */
         case AL_POSITION:
@@ -543,64 +854,64 @@ static ALenum SetSourcei64v(ALsource *Source, ALCcontext *Context, ALenum name, 
             fvals[0] = (ALfloat)values[0];
             fvals[1] = (ALfloat)values[1];
             fvals[2] = (ALfloat)values[2];
-            if((err=SetSourcefv(Source, Context, name, fvals)) != AL_NO_ERROR)
-                return err;
-            break;
-
-        default:
-            RETERR(AL_INVALID_ENUM);
+            return SetSourcefv(Source, Context, (int)prop, fvals);
     }
 
-    return AL_NO_ERROR;
+    ERR("Unexpected property: 0x%04x\n", prop);
+    RETERR(AL_INVALID_ENUM);
 }
 
 #undef CHECKVAL
 
 
-static ALenum GetSourcedv(const ALsource *Source, ALCcontext *Context, ALenum name, ALdouble *values)
+static ALenum GetSourcedv(const ALsource *Source, ALCcontext *Context, SrcFloatProp prop, ALdouble *values)
 {
     ALdouble offsets[2];
     ALdouble updateLen;
     ALint    ivals[3];
     ALenum   err;
 
-    switch(name)
+    switch(prop)
     {
+        case AL_GAIN:
+            *values = Source->Gain;
+            return AL_NO_ERROR;
+
         case AL_PITCH:
             *values = Source->Pitch;
-            break;
+            return AL_NO_ERROR;
 
         case AL_MAX_DISTANCE:
             *values = Source->MaxDistance;
-            break;
+            return AL_NO_ERROR;
 
         case AL_ROLLOFF_FACTOR:
             *values = Source->RollOffFactor;
-            break;
+            return AL_NO_ERROR;
 
         case AL_REFERENCE_DISTANCE:
             *values = Source->RefDistance;
-            break;
+            return AL_NO_ERROR;
 
         case AL_CONE_INNER_ANGLE:
             *values = Source->InnerAngle;
-            break;
+            return AL_NO_ERROR;
 
         case AL_CONE_OUTER_ANGLE:
             *values = Source->OuterAngle;
-            break;
+            return AL_NO_ERROR;
 
         case AL_MIN_GAIN:
             *values = Source->MinGain;
-            break;
+            return AL_NO_ERROR;
 
         case AL_MAX_GAIN:
             *values = Source->MaxGain;
-            break;
+            return AL_NO_ERROR;
 
         case AL_CONE_OUTER_GAIN:
             *values = Source->OuterGain;
-            break;
+            return AL_NO_ERROR;
 
         case AL_SEC_OFFSET:
         case AL_SAMPLE_OFFSET:
@@ -608,35 +919,35 @@ static ALenum GetSourcedv(const ALsource *Source, ALCcontext *Context, ALenum na
             LockContext(Context);
             updateLen = (ALdouble)Context->Device->UpdateSize /
                         Context->Device->Frequency;
-            GetSourceOffsets(Source, name, offsets, updateLen);
+            GetSourceOffsets(Source, prop, offsets, updateLen);
             UnlockContext(Context);
             *values = offsets[0];
-            break;
+            return AL_NO_ERROR;
 
         case AL_CONE_OUTER_GAINHF:
             *values = Source->OuterGainHF;
-            break;
+            return AL_NO_ERROR;
 
         case AL_AIR_ABSORPTION_FACTOR:
             *values = Source->AirAbsorptionFactor;
-            break;
+            return AL_NO_ERROR;
 
         case AL_ROOM_ROLLOFF_FACTOR:
             *values = Source->RoomRolloffFactor;
-            break;
+            return AL_NO_ERROR;
 
         case AL_DOPPLER_FACTOR:
             *values = Source->DopplerFactor;
-            break;
+            return AL_NO_ERROR;
 
         case AL_SAMPLE_RW_OFFSETS_SOFT:
         case AL_BYTE_RW_OFFSETS_SOFT:
             LockContext(Context);
             updateLen = (ALdouble)Context->Device->UpdateSize /
                         Context->Device->Frequency;
-            GetSourceOffsets(Source, name, values, updateLen);
+            GetSourceOffsets(Source, prop, values, updateLen);
             UnlockContext(Context);
-            break;
+            return AL_NO_ERROR;
 
         case AL_SEC_OFFSET_LATENCY_SOFT:
             LockContext(Context);
@@ -644,7 +955,7 @@ static ALenum GetSourcedv(const ALsource *Source, ALCcontext *Context, ALenum na
             values[1] = (ALdouble)ALCdevice_GetLatency(Context->Device) /
                         1000000000.0;
             UnlockContext(Context);
-            break;
+            return AL_NO_ERROR;
 
         case AL_POSITION:
             LockContext(Context);
@@ -652,7 +963,7 @@ static ALenum GetSourcedv(const ALsource *Source, ALCcontext *Context, ALenum na
             values[1] = Source->Position[1];
             values[2] = Source->Position[2];
             UnlockContext(Context);
-            break;
+            return AL_NO_ERROR;
 
         case AL_VELOCITY:
             LockContext(Context);
@@ -660,7 +971,7 @@ static ALenum GetSourcedv(const ALsource *Source, ALCcontext *Context, ALenum na
             values[1] = Source->Velocity[1];
             values[2] = Source->Velocity[2];
             UnlockContext(Context);
-            break;
+            return AL_NO_ERROR;
 
         case AL_DIRECTION:
             LockContext(Context);
@@ -668,7 +979,7 @@ static ALenum GetSourcedv(const ALsource *Source, ALCcontext *Context, ALenum na
             values[1] = Source->Orientation[1];
             values[2] = Source->Orientation[2];
             UnlockContext(Context);
-            break;
+            return AL_NO_ERROR;
 
         case AL_SOURCE_RELATIVE:
         case AL_LOOPING:
@@ -682,33 +993,30 @@ static ALenum GetSourcedv(const ALsource *Source, ALCcontext *Context, ALenum na
         case AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO:
         case AL_DIRECT_CHANNELS_SOFT:
         case AL_DISTANCE_MODEL:
-            if((err=GetSourceiv(Source, Context, name, ivals)) != AL_NO_ERROR)
-                return err;
-            *values = (ALdouble)ivals[0];
-            break;
-
-        default:
-            RETERR(AL_INVALID_ENUM);
+            if((err=GetSourceiv(Source, Context, (int)prop, ivals)) == AL_NO_ERROR)
+                *values = (ALdouble)ivals[0];
+            return err;
     }
 
-    return AL_NO_ERROR;
+    ERR("Unexpected property: 0x%04x\n", prop);
+    RETERR(AL_INVALID_ENUM);
 }
 
-static ALenum GetSourceiv(const ALsource *Source, ALCcontext *Context, ALenum name, ALint *values)
+static ALenum GetSourceiv(const ALsource *Source, ALCcontext *Context, SrcIntProp prop, ALint *values)
 {
     ALbufferlistitem *BufferList;
     ALdouble dvals[3];
     ALenum   err;
 
-    switch(name)
+    switch(prop)
     {
         case AL_SOURCE_RELATIVE:
             *values = Source->HeadRelative;
-            break;
+            return AL_NO_ERROR;
 
         case AL_LOOPING:
             *values = Source->Looping;
-            break;
+            return AL_NO_ERROR;
 
         case AL_BUFFER:
             LockContext(Context);
@@ -725,15 +1033,15 @@ static ALenum GetSourceiv(const ALsource *Source, ALCcontext *Context, ALenum na
             *values = ((BufferList && BufferList->buffer) ?
                        BufferList->buffer->id : 0);
             UnlockContext(Context);
-            break;
+            return AL_NO_ERROR;
 
         case AL_SOURCE_STATE:
             *values = Source->state;
-            break;
+            return AL_NO_ERROR;
 
         case AL_BUFFERS_QUEUED:
             *values = Source->BuffersInQueue;
-            break;
+            return AL_NO_ERROR;
 
         case AL_BUFFERS_PROCESSED:
             LockContext(Context);
@@ -746,31 +1054,31 @@ static ALenum GetSourceiv(const ALsource *Source, ALCcontext *Context, ALenum na
             else
                 *values = Source->BuffersPlayed;
             UnlockContext(Context);
-            break;
+            return AL_NO_ERROR;
 
         case AL_SOURCE_TYPE:
             *values = Source->SourceType;
-            break;
+            return AL_NO_ERROR;
 
         case AL_DIRECT_FILTER_GAINHF_AUTO:
             *values = Source->DryGainHFAuto;
-            break;
+            return AL_NO_ERROR;
 
         case AL_AUXILIARY_SEND_FILTER_GAIN_AUTO:
             *values = Source->WetGainAuto;
-            break;
+            return AL_NO_ERROR;
 
         case AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO:
             *values = Source->WetGainHFAuto;
-            break;
+            return AL_NO_ERROR;
 
         case AL_DIRECT_CHANNELS_SOFT:
             *values = Source->DirectChannels;
-            break;
+            return AL_NO_ERROR;
 
         case AL_DISTANCE_MODEL:
             *values = Source->DistanceModel;
-            break;
+            return AL_NO_ERROR;
 
         case AL_MAX_DISTANCE:
         case AL_ROLLOFF_FACTOR:
@@ -781,50 +1089,58 @@ static ALenum GetSourceiv(const ALsource *Source, ALCcontext *Context, ALenum na
         case AL_SAMPLE_OFFSET:
         case AL_BYTE_OFFSET:
         case AL_DOPPLER_FACTOR:
-            if((err=GetSourcedv(Source, Context, name, dvals)) != AL_NO_ERROR)
-                return err;
-            *values = (ALint)dvals[0];
-            break;
+            if((err=GetSourcedv(Source, Context, (int)prop, dvals)) == AL_NO_ERROR)
+                *values = (ALint)dvals[0];
+            return err;
 
         case AL_SAMPLE_RW_OFFSETS_SOFT:
         case AL_BYTE_RW_OFFSETS_SOFT:
-            if((err=GetSourcedv(Source, Context, name, dvals)) != AL_NO_ERROR)
-                return err;
-            values[0] = (ALint)dvals[0];
-            values[1] = (ALint)dvals[1];
-            break;
+            if((err=GetSourcedv(Source, Context, (int)prop, dvals)) == AL_NO_ERROR)
+            {
+                values[0] = (ALint)dvals[0];
+                values[1] = (ALint)dvals[1];
+            }
+            return err;
 
         case AL_POSITION:
         case AL_VELOCITY:
         case AL_DIRECTION:
-            if((err=GetSourcedv(Source, Context, name, dvals)) != AL_NO_ERROR)
-                return err;
-            values[0] = (ALint)dvals[0];
-            values[1] = (ALint)dvals[1];
-            values[2] = (ALint)dvals[2];
+            if((err=GetSourcedv(Source, Context, (int)prop, dvals)) == AL_NO_ERROR)
+            {
+                values[0] = (ALint)dvals[0];
+                values[1] = (ALint)dvals[1];
+                values[2] = (ALint)dvals[2];
+            }
+            return err;
+
+        case siSampleOffsetLatencySOFT:
+            /* i64 only */
             break;
 
-        default:
-            RETERR(AL_INVALID_ENUM);
+        case siDirectFilter:
+        case siAuxSendFilter:
+            /* ??? */
+            break;
     }
 
-    return AL_NO_ERROR;
+    ERR("Unexpected property: 0x%04x\n", prop);
+    RETERR(AL_INVALID_ENUM);
 }
 
-static ALenum GetSourcei64v(const ALsource *Source, ALCcontext *Context, ALenum name, ALint64 *values)
+static ALenum GetSourcei64v(const ALsource *Source, ALCcontext *Context, SrcIntProp prop, ALint64 *values)
 {
     ALdouble dvals[3];
     ALint    ivals[3];
     ALenum   err;
 
-    switch(name)
+    switch(prop)
     {
         case AL_SAMPLE_OFFSET_LATENCY_SOFT:
             LockContext(Context);
             values[0] = GetSourceOffset(Source);
             values[1] = ALCdevice_GetLatency(Context->Device);
             UnlockContext(Context);
-            break;
+            return AL_NO_ERROR;
 
         case AL_MAX_DISTANCE:
         case AL_ROLLOFF_FACTOR:
@@ -835,32 +1151,32 @@ static ALenum GetSourcei64v(const ALsource *Source, ALCcontext *Context, ALenum 
         case AL_SAMPLE_OFFSET:
         case AL_BYTE_OFFSET:
         case AL_DOPPLER_FACTOR:
-            if((err=GetSourcedv(Source, Context, name, dvals)) != AL_NO_ERROR)
-                return err;
-            *values = (ALint64)dvals[0];
-            break;
+            if((err=GetSourcedv(Source, Context, (int)prop, dvals)) == AL_NO_ERROR)
+                *values = (ALint64)dvals[0];
+            return err;
 
         case AL_SAMPLE_RW_OFFSETS_SOFT:
         case AL_BYTE_RW_OFFSETS_SOFT:
-            if((err=GetSourcedv(Source, Context, name, dvals)) != AL_NO_ERROR)
-                return err;
-            values[0] = (ALint64)dvals[0];
-            values[1] = (ALint64)dvals[1];
-            break;
+            if((err=GetSourcedv(Source, Context, (int)prop, dvals)) == AL_NO_ERROR)
+            {
+                values[0] = (ALint64)dvals[0];
+                values[1] = (ALint64)dvals[1];
+            }
+            return err;
 
         case AL_POSITION:
         case AL_VELOCITY:
         case AL_DIRECTION:
-            if((err=GetSourcedv(Source, Context, name, dvals)) != AL_NO_ERROR)
-                return err;
-            values[0] = (ALint64)dvals[0];
-            values[1] = (ALint64)dvals[1];
-            values[2] = (ALint64)dvals[2];
-            break;
+            if((err=GetSourcedv(Source, Context, (int)prop, dvals)) == AL_NO_ERROR)
+            {
+                values[0] = (ALint64)dvals[0];
+                values[1] = (ALint64)dvals[1];
+                values[2] = (ALint64)dvals[2];
+            }
+            return err;
 
         case AL_SOURCE_RELATIVE:
         case AL_LOOPING:
-        case AL_BUFFER:
         case AL_SOURCE_STATE:
         case AL_BUFFERS_QUEUED:
         case AL_BUFFERS_PROCESSED:
@@ -870,16 +1186,28 @@ static ALenum GetSourcei64v(const ALsource *Source, ALCcontext *Context, ALenum 
         case AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO:
         case AL_DIRECT_CHANNELS_SOFT:
         case AL_DISTANCE_MODEL:
-            if((err=GetSourceiv(Source, Context, name, ivals)) != AL_NO_ERROR)
-                return err;
-            *values = ivals[0];
-            break;
+            if((err=GetSourceiv(Source, Context, (int)prop, ivals)) == AL_NO_ERROR)
+                *values = ivals[0];
+            return err;
 
-        default:
-            RETERR(AL_INVALID_ENUM);
+        case siBuffer:
+        case siDirectFilter:
+            if((err=GetSourceiv(Source, Context, (int)prop, ivals)) == AL_NO_ERROR)
+                *values = ((ALuint*)ivals)[0];
+            return err;
+
+        case siAuxSendFilter:
+            if((err=GetSourceiv(Source, Context, (int)prop, ivals)) == AL_NO_ERROR)
+            {
+                values[0] = ((ALuint*)ivals)[0];
+                values[1] = ((ALuint*)ivals)[1];
+                values[2] = ((ALuint*)ivals)[2];
+            }
+            return err;
     }
 
-    return AL_NO_ERROR;
+    ERR("Unexpected property: 0x%04x\n", prop);
+    RETERR(AL_INVALID_ENUM);
 }
 
 #undef RETERR
@@ -902,7 +1230,10 @@ AL_API ALvoid AL_APIENTRY alGenSources(ALsizei n, ALuint *sources)
         {
             ALsource *source = al_calloc(16, sizeof(ALsource));
             if(!source)
+            {
+                alDeleteSources(cur, sources);
                 al_throwerr(Context, AL_OUT_OF_MEMORY);
+            }
             InitSourceParams(source);
 
             err = NewThunkEntry(&source->id);
@@ -914,16 +1245,12 @@ AL_API ALvoid AL_APIENTRY alGenSources(ALsizei n, ALuint *sources)
                 memset(source, 0, sizeof(ALsource));
                 al_free(source);
 
+                alDeleteSources(cur, sources);
                 al_throwerr(Context, err);
             }
 
             sources[cur] = source->id;
         }
-    }
-    al_catchany()
-    {
-        if(cur > 0)
-            alDeleteSources(cur, sources);
     }
     al_endtry;
 
@@ -1029,31 +1356,10 @@ AL_API ALvoid AL_APIENTRY alSourcef(ALuint source, ALenum param, ALfloat value)
 
     if((Source=LookupSource(Context, source)) == NULL)
         alSetError(Context, AL_INVALID_NAME);
-    else switch(param)
-    {
-        case AL_PITCH:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_GAIN:
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_REFERENCE_DISTANCE:
-        case AL_MIN_GAIN:
-        case AL_MAX_GAIN:
-        case AL_CONE_OUTER_GAIN:
-        case AL_CONE_OUTER_GAINHF:
-        case AL_AIR_ABSORPTION_FACTOR:
-        case AL_ROOM_ROLLOFF_FACTOR:
-        case AL_DOPPLER_FACTOR:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-            SetSourcefv(Source, Context, param, &value);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
-    }
+    else if(!(FloatValsByProp(param) == 1))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
+        SetSourcefv(Source, Context, param, &value);
 
     ALCcontext_DecRef(Context);
 }
@@ -1062,26 +1368,18 @@ AL_API ALvoid AL_APIENTRY alSource3f(ALuint source, ALenum param, ALfloat value1
 {
     ALCcontext *Context;
     ALsource   *Source;
-    ALfloat    fvals[3];
 
     Context = GetContextRef();
     if(!Context) return;
 
     if((Source=LookupSource(Context, source)) == NULL)
         alSetError(Context, AL_INVALID_NAME);
-    else switch(param)
+    else if(!(FloatValsByProp(param) == 3))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
     {
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-            fvals[0] = value1;
-            fvals[1] = value2;
-            fvals[2] = value3;
-            SetSourcefv(Source, Context, param, fvals);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
+        ALfloat fvals[3] = { value1, value2, value3 };
+        SetSourcefv(Source, Context, param, fvals);
     }
 
     ALCcontext_DecRef(Context);
@@ -1099,34 +1397,10 @@ AL_API ALvoid AL_APIENTRY alSourcefv(ALuint source, ALenum param, const ALfloat 
         alSetError(Context, AL_INVALID_NAME);
     else if(!values)
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
-    {
-        case AL_PITCH:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_GAIN:
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_REFERENCE_DISTANCE:
-        case AL_MIN_GAIN:
-        case AL_MAX_GAIN:
-        case AL_CONE_OUTER_GAIN:
-        case AL_CONE_OUTER_GAINHF:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-        case AL_AIR_ABSORPTION_FACTOR:
-        case AL_ROOM_ROLLOFF_FACTOR:
-
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-            SetSourcefv(Source, Context, param, values);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
-    }
+    else if(!(FloatValsByProp(param) > 0))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
+        SetSourcefv(Source, Context, param, values);
 
     ALCcontext_DecRef(Context);
 }
@@ -1136,38 +1410,18 @@ AL_API ALvoid AL_APIENTRY alSourcedSOFT(ALuint source, ALenum param, ALdouble va
 {
     ALCcontext *Context;
     ALsource   *Source;
-    ALfloat    fval;
 
     Context = GetContextRef();
     if(!Context) return;
 
     if((Source=LookupSource(Context, source)) == NULL)
         alSetError(Context, AL_INVALID_NAME);
-    else switch(param)
+    else if(!(DoubleValsByProp(param) == 1))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
     {
-        case AL_PITCH:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_GAIN:
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_REFERENCE_DISTANCE:
-        case AL_MIN_GAIN:
-        case AL_MAX_GAIN:
-        case AL_CONE_OUTER_GAIN:
-        case AL_CONE_OUTER_GAINHF:
-        case AL_AIR_ABSORPTION_FACTOR:
-        case AL_ROOM_ROLLOFF_FACTOR:
-        case AL_DOPPLER_FACTOR:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-            fval = (ALfloat)value;
-            SetSourcefv(Source, Context, param, &fval);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
+        ALfloat fval = (ALfloat)value;
+        SetSourcefv(Source, Context, param, &fval);
     }
 
     ALCcontext_DecRef(Context);
@@ -1177,26 +1431,18 @@ AL_API ALvoid AL_APIENTRY alSource3dSOFT(ALuint source, ALenum param, ALdouble v
 {
     ALCcontext *Context;
     ALsource   *Source;
-    ALfloat    fvals[3];
 
     Context = GetContextRef();
     if(!Context) return;
 
     if((Source=LookupSource(Context, source)) == NULL)
         alSetError(Context, AL_INVALID_NAME);
-    else switch(param)
+    else if(!(DoubleValsByProp(param) == 3))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
     {
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-            fvals[0] = (ALfloat)value1;
-            fvals[1] = (ALfloat)value2;
-            fvals[2] = (ALfloat)value3;
-            SetSourcefv(Source, Context, param, fvals);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
+        ALfloat fvals[3] = { (ALfloat)value1, (ALfloat)value2, (ALfloat)value3 };
+        SetSourcefv(Source, Context, param, fvals);
     }
 
     ALCcontext_DecRef(Context);
@@ -1206,7 +1452,7 @@ AL_API ALvoid AL_APIENTRY alSourcedvSOFT(ALuint source, ALenum param, const ALdo
 {
     ALCcontext *Context;
     ALsource   *Source;
-    ALfloat    fvals[3];
+    ALint      count;
 
     Context = GetContextRef();
     if(!Context) return;
@@ -1215,45 +1461,16 @@ AL_API ALvoid AL_APIENTRY alSourcedvSOFT(ALuint source, ALenum param, const ALdo
         alSetError(Context, AL_INVALID_NAME);
     else if(!values)
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
+    else if(!((count=DoubleValsByProp(param)) > 0 && count <= 3))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
     {
-        case AL_PITCH:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_GAIN:
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_REFERENCE_DISTANCE:
-        case AL_MIN_GAIN:
-        case AL_MAX_GAIN:
-        case AL_CONE_OUTER_GAIN:
-        case AL_CONE_OUTER_GAINHF:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-        case AL_AIR_ABSORPTION_FACTOR:
-        case AL_ROOM_ROLLOFF_FACTOR:
-            fvals[0] = (ALfloat)values[0];
-            SetSourcefv(Source, Context, param, fvals);
-            break;
+        ALfloat fvals[3];
+        ALint i;
 
-        case AL_SEC_OFFSET_LATENCY_SOFT:
-            fvals[0] = (ALfloat)values[0];
-            fvals[1] = (ALfloat)values[1];
-            SetSourcefv(Source, Context, param, fvals);
-            break;
-
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-            fvals[0] = (ALfloat)values[0];
-            fvals[1] = (ALfloat)values[1];
-            fvals[2] = (ALfloat)values[2];
-            SetSourcefv(Source, Context, param, fvals);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
+        for(i = 0;i < count;i++)
+            fvals[i] = (ALfloat)values[i];
+        SetSourcefv(Source, Context, param, fvals);
     }
 
     ALCcontext_DecRef(Context);
@@ -1270,32 +1487,10 @@ AL_API ALvoid AL_APIENTRY alSourcei(ALuint source, ALenum param, ALint value)
 
     if((Source=LookupSource(Context, source)) == NULL)
         alSetError(Context, AL_INVALID_NAME);
-    else switch(param)
-    {
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_REFERENCE_DISTANCE:
-        case AL_SOURCE_RELATIVE:
-        case AL_LOOPING:
-        case AL_BUFFER:
-        case AL_SOURCE_STATE:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-        case AL_DIRECT_FILTER:
-        case AL_DIRECT_FILTER_GAINHF_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAIN_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO:
-        case AL_DIRECT_CHANNELS_SOFT:
-        case AL_DISTANCE_MODEL:
-            SetSourceiv(Source, Context, param, &value);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
-    }
+    else if(!(IntValsByProp(param) == 1))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
+        SetSourceiv(Source, Context, param, &value);
 
     ALCcontext_DecRef(Context);
 }
@@ -1304,27 +1499,18 @@ AL_API void AL_APIENTRY alSource3i(ALuint source, ALenum param, ALint value1, AL
 {
     ALCcontext *Context;
     ALsource   *Source;
-    ALint      ivals[3];
 
     Context = GetContextRef();
     if(!Context) return;
 
     if((Source=LookupSource(Context, source)) == NULL)
         alSetError(Context, AL_INVALID_NAME);
-    else switch(param)
+    else if(!(IntValsByProp(param) == 3))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
     {
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-        case AL_AUXILIARY_SEND_FILTER:
-            ivals[0] = value1;
-            ivals[1] = value2;
-            ivals[2] = value3;
-            SetSourceiv(Source, Context, param, ivals);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
+        ALint ivals[3] = { value1, value2, value3 };
+        SetSourceiv(Source, Context, param, ivals);
     }
 
     ALCcontext_DecRef(Context);
@@ -1342,37 +1528,10 @@ AL_API void AL_APIENTRY alSourceiv(ALuint source, ALenum param, const ALint *val
         alSetError(Context, AL_INVALID_NAME);
     else if(!values)
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
-    {
-        case AL_SOURCE_RELATIVE:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_LOOPING:
-        case AL_BUFFER:
-        case AL_SOURCE_STATE:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_REFERENCE_DISTANCE:
-        case AL_DIRECT_FILTER:
-        case AL_DIRECT_FILTER_GAINHF_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAIN_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO:
-        case AL_DISTANCE_MODEL:
-        case AL_DIRECT_CHANNELS_SOFT:
-
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-        case AL_AUXILIARY_SEND_FILTER:
-            SetSourceiv(Source, Context, param, values);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
-    }
+    else if(!(IntValsByProp(param) > 0))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
+        SetSourceiv(Source, Context, param, values);
 
     ALCcontext_DecRef(Context);
 }
@@ -1388,32 +1547,10 @@ AL_API ALvoid AL_APIENTRY alSourcei64SOFT(ALuint source, ALenum param, ALint64SO
 
     if((Source=LookupSource(Context, source)) == NULL)
         alSetError(Context, AL_INVALID_NAME);
-    else switch(param)
-    {
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_REFERENCE_DISTANCE:
-        case AL_SOURCE_RELATIVE:
-        case AL_LOOPING:
-        case AL_SOURCE_STATE:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-        case AL_DIRECT_FILTER_GAINHF_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAIN_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO:
-        case AL_DIRECT_CHANNELS_SOFT:
-        case AL_DISTANCE_MODEL:
-        case AL_BUFFER:
-        case AL_DIRECT_FILTER:
-            SetSourcei64v(Source, Context, param, &value);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
-    }
+    else if(!(Int64ValsByProp(param) == 1))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
+        SetSourcei64v(Source, Context, param, &value);
 
     ALCcontext_DecRef(Context);
 }
@@ -1422,27 +1559,18 @@ AL_API void AL_APIENTRY alSource3i64SOFT(ALuint source, ALenum param, ALint64SOF
 {
     ALCcontext *Context;
     ALsource   *Source;
-    ALint64SOFT i64vals[3];
 
     Context = GetContextRef();
     if(!Context) return;
 
     if((Source=LookupSource(Context, source)) == NULL)
         alSetError(Context, AL_INVALID_NAME);
-    else switch(param)
+    else if(!(Int64ValsByProp(param) == 3))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
     {
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-        case AL_AUXILIARY_SEND_FILTER:
-            i64vals[0] = value1;
-            i64vals[1] = value2;
-            i64vals[2] = value3;
-            SetSourcei64v(Source, Context, param, i64vals);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
+        ALint64SOFT i64vals[3] = { value1, value2, value3 };
+        SetSourcei64v(Source, Context, param, i64vals);
     }
 
     ALCcontext_DecRef(Context);
@@ -1460,39 +1588,10 @@ AL_API void AL_APIENTRY alSourcei64vSOFT(ALuint source, ALenum param, const ALin
         alSetError(Context, AL_INVALID_NAME);
     else if(!values)
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
-    {
-        case AL_SOURCE_RELATIVE:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_LOOPING:
-        case AL_SOURCE_STATE:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_REFERENCE_DISTANCE:
-        case AL_DIRECT_FILTER_GAINHF_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAIN_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO:
-        case AL_DISTANCE_MODEL:
-        case AL_DIRECT_CHANNELS_SOFT:
-        case AL_BUFFER:
-        case AL_DIRECT_FILTER:
-
-        case AL_SAMPLE_OFFSET_LATENCY_SOFT:
-
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-        case AL_AUXILIARY_SEND_FILTER:
-            SetSourcei64v(Source, Context, param, values);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
-    }
+    else if(!(Int64ValsByProp(param) > 0))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
+        SetSourcei64v(Source, Context, param, values);
 
     ALCcontext_DecRef(Context);
 }
@@ -1502,7 +1601,6 @@ AL_API ALvoid AL_APIENTRY alGetSourcef(ALuint source, ALenum param, ALfloat *val
 {
     ALCcontext *Context;
     ALsource   *Source;
-    ALdouble   dval;
 
     Context = GetContextRef();
     if(!Context) return;
@@ -1511,31 +1609,13 @@ AL_API ALvoid AL_APIENTRY alGetSourcef(ALuint source, ALenum param, ALfloat *val
         alSetError(Context, AL_INVALID_NAME);
     else if(!value)
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
+    else if(!(FloatValsByProp(param) == 1))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
     {
-        case AL_PITCH:
-        case AL_GAIN:
-        case AL_MIN_GAIN:
-        case AL_MAX_GAIN:
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_CONE_OUTER_GAIN:
-        case AL_CONE_OUTER_GAINHF:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_REFERENCE_DISTANCE:
-        case AL_AIR_ABSORPTION_FACTOR:
-        case AL_ROOM_ROLLOFF_FACTOR:
-        case AL_DOPPLER_FACTOR:
-            if(GetSourcedv(Source, Context, param, &dval) == AL_NO_ERROR)
-                *value = (ALfloat)dval;
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
+        ALdouble dval;
+        if(GetSourcedv(Source, Context, param, &dval) == AL_NO_ERROR)
+            *value = (ALfloat)dval;
     }
 
     ALCcontext_DecRef(Context);
@@ -1546,7 +1626,6 @@ AL_API ALvoid AL_APIENTRY alGetSource3f(ALuint source, ALenum param, ALfloat *va
 {
     ALCcontext *Context;
     ALsource   *Source;
-    ALdouble   dvals[3];
 
     Context = GetContextRef();
     if(!Context) return;
@@ -1555,21 +1634,17 @@ AL_API ALvoid AL_APIENTRY alGetSource3f(ALuint source, ALenum param, ALfloat *va
         alSetError(Context, AL_INVALID_NAME);
     else if(!(value1 && value2 && value3))
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
+    else if(!(FloatValsByProp(param) == 3))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
     {
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-            if(GetSourcedv(Source, Context, param, dvals) == AL_NO_ERROR)
-            {
-                *value1 = (ALfloat)dvals[0];
-                *value2 = (ALfloat)dvals[1];
-                *value3 = (ALfloat)dvals[2];
-            }
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
+        ALdouble dvals[3];
+        if(GetSourcedv(Source, Context, param, dvals) == AL_NO_ERROR)
+        {
+            *value1 = (ALfloat)dvals[0];
+            *value2 = (ALfloat)dvals[1];
+            *value3 = (ALfloat)dvals[2];
+        }
     }
 
     ALCcontext_DecRef(Context);
@@ -1580,36 +1655,7 @@ AL_API ALvoid AL_APIENTRY alGetSourcefv(ALuint source, ALenum param, ALfloat *va
 {
     ALCcontext *Context;
     ALsource   *Source;
-    ALdouble   dvals[2];
-
-    switch(param)
-    {
-        case AL_PITCH:
-        case AL_GAIN:
-        case AL_MIN_GAIN:
-        case AL_MAX_GAIN:
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_DOPPLER_FACTOR:
-        case AL_CONE_OUTER_GAIN:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_REFERENCE_DISTANCE:
-        case AL_CONE_OUTER_GAINHF:
-        case AL_AIR_ABSORPTION_FACTOR:
-        case AL_ROOM_ROLLOFF_FACTOR:
-            alGetSourcef(source, param, values);
-            return;
-
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-            alGetSource3f(source, param, values+0, values+1, values+2);
-            return;
-    }
+    ALint      count;
 
     Context = GetContextRef();
     if(!Context) return;
@@ -1618,19 +1664,17 @@ AL_API ALvoid AL_APIENTRY alGetSourcefv(ALuint source, ALenum param, ALfloat *va
         alSetError(Context, AL_INVALID_NAME);
     else if(!values)
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
+    else if(!((count=FloatValsByProp(param)) > 0 && count <= 3))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
     {
-        case AL_SAMPLE_RW_OFFSETS_SOFT:
-        case AL_BYTE_RW_OFFSETS_SOFT:
-            if(GetSourcedv(Source, Context, param, dvals) == AL_NO_ERROR)
-            {
-                values[0] = (ALfloat)dvals[0];
-                values[1] = (ALfloat)dvals[1];
-            }
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
+        ALdouble dvals[3];
+        if(GetSourcedv(Source, Context, param, dvals) == AL_NO_ERROR)
+        {
+            ALint i;
+            for(i = 0;i < count;i++)
+                values[i] = (ALfloat)dvals[i];
+        }
     }
 
     ALCcontext_DecRef(Context);
@@ -1649,31 +1693,10 @@ AL_API void AL_APIENTRY alGetSourcedSOFT(ALuint source, ALenum param, ALdouble *
         alSetError(Context, AL_INVALID_NAME);
     else if(!value)
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
-    {
-        case AL_PITCH:
-        case AL_GAIN:
-        case AL_MIN_GAIN:
-        case AL_MAX_GAIN:
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_CONE_OUTER_GAIN:
-        case AL_CONE_OUTER_GAINHF:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_REFERENCE_DISTANCE:
-        case AL_AIR_ABSORPTION_FACTOR:
-        case AL_ROOM_ROLLOFF_FACTOR:
-        case AL_DOPPLER_FACTOR:
-            GetSourcedv(Source, Context, param, value);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
-    }
+    else if(!(DoubleValsByProp(param) == 1))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
+        GetSourcedv(Source, Context, param, value);
 
     ALCcontext_DecRef(Context);
 }
@@ -1682,7 +1705,6 @@ AL_API void AL_APIENTRY alGetSource3dSOFT(ALuint source, ALenum param, ALdouble 
 {
     ALCcontext *Context;
     ALsource   *Source;
-    ALdouble   dvals[3];
 
     Context = GetContextRef();
     if(!Context) return;
@@ -1691,21 +1713,17 @@ AL_API void AL_APIENTRY alGetSource3dSOFT(ALuint source, ALenum param, ALdouble 
         alSetError(Context, AL_INVALID_NAME);
     else if(!(value1 && value2 && value3))
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
+    else if(!(DoubleValsByProp(param) == 3))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
     {
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-            if(GetSourcedv(Source, Context, param, dvals) == AL_NO_ERROR)
-            {
-                *value1 = dvals[0];
-                *value2 = dvals[1];
-                *value3 = dvals[2];
-            }
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
+        ALdouble dvals[3];
+        if(GetSourcedv(Source, Context, param, dvals) == AL_NO_ERROR)
+        {
+            *value1 = dvals[0];
+            *value2 = dvals[1];
+            *value3 = dvals[2];
+        }
     }
 
     ALCcontext_DecRef(Context);
@@ -1723,39 +1741,10 @@ AL_API void AL_APIENTRY alGetSourcedvSOFT(ALuint source, ALenum param, ALdouble 
         alSetError(Context, AL_INVALID_NAME);
     else if(!values)
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
-    {
-        case AL_PITCH:
-        case AL_GAIN:
-        case AL_MIN_GAIN:
-        case AL_MAX_GAIN:
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_DOPPLER_FACTOR:
-        case AL_CONE_OUTER_GAIN:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_REFERENCE_DISTANCE:
-        case AL_CONE_OUTER_GAINHF:
-        case AL_AIR_ABSORPTION_FACTOR:
-        case AL_ROOM_ROLLOFF_FACTOR:
-
-        case AL_SAMPLE_RW_OFFSETS_SOFT:
-        case AL_BYTE_RW_OFFSETS_SOFT:
-        case AL_SEC_OFFSET_LATENCY_SOFT:
-
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-            GetSourcedv(Source, Context, param, values);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
-    }
+    else if(!(DoubleValsByProp(param) > 0))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
+        GetSourcedv(Source, Context, param, values);
 
     ALCcontext_DecRef(Context);
 }
@@ -1773,35 +1762,10 @@ AL_API ALvoid AL_APIENTRY alGetSourcei(ALuint source, ALenum param, ALint *value
         alSetError(Context, AL_INVALID_NAME);
     else if(!value)
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
-    {
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_REFERENCE_DISTANCE:
-        case AL_SOURCE_RELATIVE:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_LOOPING:
-        case AL_BUFFER:
-        case AL_SOURCE_STATE:
-        case AL_BUFFERS_QUEUED:
-        case AL_BUFFERS_PROCESSED:
-        case AL_SOURCE_TYPE:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-        case AL_DIRECT_FILTER_GAINHF_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAIN_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO:
-        case AL_DOPPLER_FACTOR:
-        case AL_DIRECT_CHANNELS_SOFT:
-        case AL_DISTANCE_MODEL:
-            GetSourceiv(Source, Context, param, value);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
-    }
+    else if(!(IntValsByProp(param) == 1))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
+        GetSourceiv(Source, Context, param, value);
 
     ALCcontext_DecRef(Context);
 }
@@ -1811,7 +1775,6 @@ AL_API void AL_APIENTRY alGetSource3i(ALuint source, ALenum param, ALint *value1
 {
     ALCcontext *Context;
     ALsource   *Source;
-    ALint      ivals[3];
 
     Context = GetContextRef();
     if(!Context) return;
@@ -1820,21 +1783,17 @@ AL_API void AL_APIENTRY alGetSource3i(ALuint source, ALenum param, ALint *value1
         alSetError(Context, AL_INVALID_NAME);
     else if(!(value1 && value2 && value3))
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
+    else if(!(IntValsByProp(param) == 3))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
     {
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-            if(GetSourceiv(Source, Context, param, ivals) == AL_NO_ERROR)
-            {
-                *value1 = ivals[0];
-                *value2 = ivals[1];
-                *value3 = ivals[2];
-            }
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
+        ALint ivals[3];
+        if(GetSourceiv(Source, Context, param, ivals) == AL_NO_ERROR)
+        {
+            *value1 = ivals[0];
+            *value2 = ivals[1];
+            *value3 = ivals[2];
+        }
     }
 
     ALCcontext_DecRef(Context);
@@ -1853,43 +1812,10 @@ AL_API void AL_APIENTRY alGetSourceiv(ALuint source, ALenum param, ALint *values
         alSetError(Context, AL_INVALID_NAME);
     else if(!values)
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
-    {
-        case AL_SOURCE_RELATIVE:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_LOOPING:
-        case AL_BUFFER:
-        case AL_SOURCE_STATE:
-        case AL_BUFFERS_QUEUED:
-        case AL_BUFFERS_PROCESSED:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_DOPPLER_FACTOR:
-        case AL_REFERENCE_DISTANCE:
-        case AL_SOURCE_TYPE:
-        case AL_DIRECT_FILTER:
-        case AL_DIRECT_FILTER_GAINHF_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAIN_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO:
-        case AL_DISTANCE_MODEL:
-        case AL_DIRECT_CHANNELS_SOFT:
-
-        case AL_SAMPLE_RW_OFFSETS_SOFT:
-        case AL_BYTE_RW_OFFSETS_SOFT:
-
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-            GetSourceiv(Source, Context, param, values);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
-    }
+    else if(!(IntValsByProp(param) > 0))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
+        GetSourceiv(Source, Context, param, values);
 
     ALCcontext_DecRef(Context);
 }
@@ -1907,35 +1833,10 @@ AL_API void AL_APIENTRY alGetSourcei64SOFT(ALuint source, ALenum param, ALint64S
         alSetError(Context, AL_INVALID_NAME);
     else if(!value)
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
-    {
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_REFERENCE_DISTANCE:
-        case AL_SOURCE_RELATIVE:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_LOOPING:
-        case AL_BUFFER:
-        case AL_SOURCE_STATE:
-        case AL_BUFFERS_QUEUED:
-        case AL_BUFFERS_PROCESSED:
-        case AL_SOURCE_TYPE:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-        case AL_DIRECT_FILTER_GAINHF_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAIN_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO:
-        case AL_DOPPLER_FACTOR:
-        case AL_DIRECT_CHANNELS_SOFT:
-        case AL_DISTANCE_MODEL:
-            GetSourcei64v(Source, Context, param, value);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
-    }
+    else if(!(Int64ValsByProp(param) == 1))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
+        GetSourcei64v(Source, Context, param, value);
 
     ALCcontext_DecRef(Context);
 }
@@ -1944,7 +1845,6 @@ AL_API void AL_APIENTRY alGetSource3i64SOFT(ALuint source, ALenum param, ALint64
 {
     ALCcontext *Context;
     ALsource   *Source;
-    ALint64    i64vals[3];
 
     Context = GetContextRef();
     if(!Context) return;
@@ -1953,21 +1853,17 @@ AL_API void AL_APIENTRY alGetSource3i64SOFT(ALuint source, ALenum param, ALint64
         alSetError(Context, AL_INVALID_NAME);
     else if(!(value1 && value2 && value3))
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
+    else if(!(Int64ValsByProp(param) == 3))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
     {
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-            if(GetSourcei64v(Source, Context, param, i64vals) == AL_NO_ERROR)
-            {
-                *value1 = i64vals[0];
-                *value2 = i64vals[1];
-                *value3 = i64vals[2];
-            }
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
+        ALint64 i64vals[3];
+        if(GetSourcei64v(Source, Context, param, i64vals) == AL_NO_ERROR)
+        {
+            *value1 = i64vals[0];
+            *value2 = i64vals[1];
+            *value3 = i64vals[2];
+        }
     }
 
     ALCcontext_DecRef(Context);
@@ -1985,43 +1881,10 @@ AL_API void AL_APIENTRY alGetSourcei64vSOFT(ALuint source, ALenum param, ALint64
         alSetError(Context, AL_INVALID_NAME);
     else if(!values)
         alSetError(Context, AL_INVALID_VALUE);
-    else switch(param)
-    {
-        case AL_MAX_DISTANCE:
-        case AL_ROLLOFF_FACTOR:
-        case AL_REFERENCE_DISTANCE:
-        case AL_SOURCE_RELATIVE:
-        case AL_CONE_INNER_ANGLE:
-        case AL_CONE_OUTER_ANGLE:
-        case AL_LOOPING:
-        case AL_BUFFER:
-        case AL_SOURCE_STATE:
-        case AL_BUFFERS_QUEUED:
-        case AL_BUFFERS_PROCESSED:
-        case AL_SOURCE_TYPE:
-        case AL_SEC_OFFSET:
-        case AL_SAMPLE_OFFSET:
-        case AL_BYTE_OFFSET:
-        case AL_DIRECT_FILTER_GAINHF_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAIN_AUTO:
-        case AL_AUXILIARY_SEND_FILTER_GAINHF_AUTO:
-        case AL_DOPPLER_FACTOR:
-        case AL_DIRECT_CHANNELS_SOFT:
-        case AL_DISTANCE_MODEL:
-
-        case AL_SAMPLE_RW_OFFSETS_SOFT:
-        case AL_BYTE_RW_OFFSETS_SOFT:
-        case AL_SAMPLE_OFFSET_LATENCY_SOFT:
-
-        case AL_POSITION:
-        case AL_VELOCITY:
-        case AL_DIRECTION:
-            GetSourcei64v(Source, Context, param, values);
-            break;
-
-        default:
-            alSetError(Context, AL_INVALID_ENUM);
-    }
+    else if(!(Int64ValsByProp(param) > 0))
+        alSetError(Context, AL_INVALID_ENUM);
+    else
+        GetSourcei64v(Source, Context, param, values);
 
     ALCcontext_DecRef(Context);
 }
@@ -2305,24 +2168,23 @@ AL_API ALvoid AL_APIENTRY alSourceQueueBuffers(ALuint source, ALsizei nb, const 
             BufferListStart->prev = BufferList;
             BufferList->next = BufferListStart;
         }
+        BufferListStart = NULL;
 
         Source->BuffersInQueue += nb;
 
         UnlockContext(Context);
     }
-    al_catchany()
-    {
-        while(BufferListStart)
-        {
-            BufferList = BufferListStart;
-            BufferListStart = BufferList->next;
-
-            if(BufferList->buffer)
-                DecrementRef(&BufferList->buffer->ref);
-            free(BufferList);
-        }
-    }
     al_endtry;
+
+    while(BufferListStart)
+    {
+        BufferList = BufferListStart;
+        BufferListStart = BufferList->next;
+
+        if(BufferList->buffer)
+            DecrementRef(&BufferList->buffer->ref);
+        free(BufferList);
+    }
 
     ALCcontext_DecRef(Context);
 }

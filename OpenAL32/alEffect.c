@@ -59,6 +59,7 @@ AL_API ALvoid AL_APIENTRY alGenEffects(ALsizei n, ALuint *effects)
             if(!effect || (err=InitEffect(effect)) != AL_NO_ERROR)
             {
                 free(effect);
+                alDeleteEffects(cur, effects);
                 al_throwerr(Context, err);
             }
 
@@ -71,16 +72,12 @@ AL_API ALvoid AL_APIENTRY alGenEffects(ALsizei n, ALuint *effects)
                 memset(effect, 0, sizeof(ALeffect));
                 free(effect);
 
+                alDeleteEffects(cur, effects);
                 al_throwerr(Context, err);
             }
 
             effects[cur] = effect->id;
         }
-    }
-    al_catchany()
-    {
-        if(cur > 0)
-            alDeleteEffects(cur, effects);
     }
     al_endtry;
 
@@ -344,840 +341,6 @@ AL_API ALvoid AL_APIENTRY alGetEffectfv(ALuint effect, ALenum param, ALfloat *va
 }
 
 
-static void eaxreverb_SetParami(ALeffect *effect, ALCcontext *context, ALenum param, ALint val)
-{
-    switch(param)
-    {
-        case AL_EAXREVERB_DECAY_HFLIMIT:
-            if(val >= AL_EAXREVERB_MIN_DECAY_HFLIMIT && val <= AL_EAXREVERB_MAX_DECAY_HFLIMIT)
-                effect->Reverb.DecayHFLimit = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void eaxreverb_SetParamiv(ALeffect *effect, ALCcontext *context, ALenum param, const ALint *vals)
-{
-    eaxreverb_SetParami(effect, context, param, vals[0]);
-}
-static void eaxreverb_SetParamf(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat val)
-{
-    switch(param)
-    {
-        case AL_EAXREVERB_DENSITY:
-            if(val >= AL_EAXREVERB_MIN_DENSITY &&
-               val <= AL_EAXREVERB_MAX_DENSITY)
-                effect->Reverb.Density = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_DIFFUSION:
-            if(val >= AL_EAXREVERB_MIN_DIFFUSION &&
-               val <= AL_EAXREVERB_MAX_DIFFUSION)
-                effect->Reverb.Diffusion = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_GAIN:
-            if(val >= AL_EAXREVERB_MIN_GAIN &&
-               val <= AL_EAXREVERB_MAX_GAIN)
-                effect->Reverb.Gain = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_GAINHF:
-            if(val >= AL_EAXREVERB_MIN_GAINHF &&
-               val <= AL_EAXREVERB_MAX_GAINHF)
-                effect->Reverb.GainHF = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_GAINLF:
-            if(val >= AL_EAXREVERB_MIN_GAINLF &&
-               val <= AL_EAXREVERB_MAX_GAINLF)
-                effect->Reverb.GainLF = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_DECAY_TIME:
-            if(val >= AL_EAXREVERB_MIN_DECAY_TIME &&
-               val <= AL_EAXREVERB_MAX_DECAY_TIME)
-                effect->Reverb.DecayTime = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_DECAY_HFRATIO:
-            if(val >= AL_EAXREVERB_MIN_DECAY_HFRATIO &&
-               val <= AL_EAXREVERB_MAX_DECAY_HFRATIO)
-                effect->Reverb.DecayHFRatio = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_DECAY_LFRATIO:
-            if(val >= AL_EAXREVERB_MIN_DECAY_LFRATIO &&
-               val <= AL_EAXREVERB_MAX_DECAY_LFRATIO)
-                effect->Reverb.DecayLFRatio = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_REFLECTIONS_GAIN:
-            if(val >= AL_EAXREVERB_MIN_REFLECTIONS_GAIN &&
-               val <= AL_EAXREVERB_MAX_REFLECTIONS_GAIN)
-                effect->Reverb.ReflectionsGain = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_REFLECTIONS_DELAY:
-            if(val >= AL_EAXREVERB_MIN_REFLECTIONS_DELAY &&
-               val <= AL_EAXREVERB_MAX_REFLECTIONS_DELAY)
-                effect->Reverb.ReflectionsDelay = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_LATE_REVERB_GAIN:
-            if(val >= AL_EAXREVERB_MIN_LATE_REVERB_GAIN &&
-               val <= AL_EAXREVERB_MAX_LATE_REVERB_GAIN)
-                effect->Reverb.LateReverbGain = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_LATE_REVERB_DELAY:
-            if(val >= AL_EAXREVERB_MIN_LATE_REVERB_DELAY &&
-               val <= AL_EAXREVERB_MAX_LATE_REVERB_DELAY)
-                effect->Reverb.LateReverbDelay = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_AIR_ABSORPTION_GAINHF:
-            if(val >= AL_EAXREVERB_MIN_AIR_ABSORPTION_GAINHF &&
-               val <= AL_EAXREVERB_MAX_AIR_ABSORPTION_GAINHF)
-                effect->Reverb.AirAbsorptionGainHF = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_ECHO_TIME:
-            if(val >= AL_EAXREVERB_MIN_ECHO_TIME &&
-               val <= AL_EAXREVERB_MAX_ECHO_TIME)
-                effect->Reverb.EchoTime = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_ECHO_DEPTH:
-            if(val >= AL_EAXREVERB_MIN_ECHO_DEPTH &&
-               val <= AL_EAXREVERB_MAX_ECHO_DEPTH)
-                effect->Reverb.EchoDepth = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_MODULATION_TIME:
-            if(val >= AL_EAXREVERB_MIN_MODULATION_TIME &&
-               val <= AL_EAXREVERB_MAX_MODULATION_TIME)
-                effect->Reverb.ModulationTime = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_MODULATION_DEPTH:
-            if(val >= AL_EAXREVERB_MIN_MODULATION_DEPTH &&
-               val <= AL_EAXREVERB_MAX_MODULATION_DEPTH)
-                effect->Reverb.ModulationDepth = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_HFREFERENCE:
-            if(val >= AL_EAXREVERB_MIN_HFREFERENCE &&
-               val <= AL_EAXREVERB_MAX_HFREFERENCE)
-                effect->Reverb.HFReference = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_LFREFERENCE:
-            if(val >= AL_EAXREVERB_MIN_LFREFERENCE &&
-               val <= AL_EAXREVERB_MAX_LFREFERENCE)
-                effect->Reverb.LFReference = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_EAXREVERB_ROOM_ROLLOFF_FACTOR:
-            if(val >= 0.0f && val <= 10.0f)
-                effect->Reverb.RoomRolloffFactor = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void eaxreverb_SetParamfv(ALeffect *effect, ALCcontext *context, ALenum param, const ALfloat *vals)
-{
-    switch(param)
-    {
-        case AL_EAXREVERB_REFLECTIONS_PAN:
-            if(isfinite(vals[0]) && isfinite(vals[1]) && isfinite(vals[2]))
-            {
-                LockContext(context);
-                effect->Reverb.ReflectionsPan[0] = vals[0];
-                effect->Reverb.ReflectionsPan[1] = vals[1];
-                effect->Reverb.ReflectionsPan[2] = vals[2];
-                UnlockContext(context);
-            }
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-        case AL_EAXREVERB_LATE_REVERB_PAN:
-            if(isfinite(vals[0]) && isfinite(vals[1]) && isfinite(vals[2]))
-            {
-                LockContext(context);
-                effect->Reverb.LateReverbPan[0] = vals[0];
-                effect->Reverb.LateReverbPan[1] = vals[1];
-                effect->Reverb.LateReverbPan[2] = vals[2];
-                UnlockContext(context);
-            }
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        default:
-            eaxreverb_SetParamf(effect, context, param, vals[0]);
-            break;
-    }
-}
-
-static void eaxreverb_GetParami(ALeffect *effect, ALCcontext *context, ALenum param, ALint *val)
-{
-    switch(param)
-    {
-        case AL_EAXREVERB_DECAY_HFLIMIT:
-            *val = effect->Reverb.DecayHFLimit;
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void eaxreverb_GetParamiv(ALeffect *effect, ALCcontext *context, ALenum param, ALint *vals)
-{
-    eaxreverb_GetParami(effect, context, param, vals);
-}
-static void eaxreverb_GetParamf(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat *val)
-{
-    switch(param)
-    {
-        case AL_EAXREVERB_DENSITY:
-            *val = effect->Reverb.Density;
-            break;
-
-        case AL_EAXREVERB_DIFFUSION:
-            *val = effect->Reverb.Diffusion;
-            break;
-
-        case AL_EAXREVERB_GAIN:
-            *val = effect->Reverb.Gain;
-            break;
-
-        case AL_EAXREVERB_GAINHF:
-            *val = effect->Reverb.GainHF;
-            break;
-
-        case AL_EAXREVERB_GAINLF:
-            *val = effect->Reverb.GainLF;
-            break;
-
-        case AL_EAXREVERB_DECAY_TIME:
-            *val = effect->Reverb.DecayTime;
-            break;
-
-        case AL_EAXREVERB_DECAY_HFRATIO:
-            *val = effect->Reverb.DecayHFRatio;
-            break;
-
-        case AL_EAXREVERB_DECAY_LFRATIO:
-            *val = effect->Reverb.DecayLFRatio;
-            break;
-
-        case AL_EAXREVERB_REFLECTIONS_GAIN:
-            *val = effect->Reverb.ReflectionsGain;
-            break;
-
-        case AL_EAXREVERB_REFLECTIONS_DELAY:
-            *val = effect->Reverb.ReflectionsDelay;
-            break;
-
-        case AL_EAXREVERB_LATE_REVERB_GAIN:
-            *val = effect->Reverb.LateReverbGain;
-            break;
-
-        case AL_EAXREVERB_LATE_REVERB_DELAY:
-            *val = effect->Reverb.LateReverbDelay;
-            break;
-
-        case AL_EAXREVERB_AIR_ABSORPTION_GAINHF:
-            *val = effect->Reverb.AirAbsorptionGainHF;
-            break;
-
-        case AL_EAXREVERB_ECHO_TIME:
-            *val = effect->Reverb.EchoTime;
-            break;
-
-        case AL_EAXREVERB_ECHO_DEPTH:
-            *val = effect->Reverb.EchoDepth;
-            break;
-
-        case AL_EAXREVERB_MODULATION_TIME:
-            *val = effect->Reverb.ModulationTime;
-            break;
-
-        case AL_EAXREVERB_MODULATION_DEPTH:
-            *val = effect->Reverb.ModulationDepth;
-            break;
-
-        case AL_EAXREVERB_HFREFERENCE:
-            *val = effect->Reverb.HFReference;
-            break;
-
-        case AL_EAXREVERB_LFREFERENCE:
-            *val = effect->Reverb.LFReference;
-            break;
-
-        case AL_EAXREVERB_ROOM_ROLLOFF_FACTOR:
-            *val = effect->Reverb.RoomRolloffFactor;
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void eaxreverb_GetParamfv(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat *vals)
-{
-    switch(param)
-    {
-        case AL_EAXREVERB_REFLECTIONS_PAN:
-            LockContext(context);
-            vals[0] = effect->Reverb.ReflectionsPan[0];
-            vals[1] = effect->Reverb.ReflectionsPan[1];
-            vals[2] = effect->Reverb.ReflectionsPan[2];
-            UnlockContext(context);
-            break;
-        case AL_EAXREVERB_LATE_REVERB_PAN:
-            LockContext(context);
-            vals[0] = effect->Reverb.LateReverbPan[0];
-            vals[1] = effect->Reverb.LateReverbPan[1];
-            vals[2] = effect->Reverb.LateReverbPan[2];
-            UnlockContext(context);
-            break;
-
-        default:
-            eaxreverb_GetParamf(effect, context, param, vals);
-            break;
-    }
-}
-
-
-static void reverb_SetParami(ALeffect *effect, ALCcontext *context, ALenum param, ALint val)
-{
-    switch(param)
-    {
-        case AL_REVERB_DECAY_HFLIMIT:
-            if(val >= AL_REVERB_MIN_DECAY_HFLIMIT &&
-               val <= AL_REVERB_MAX_DECAY_HFLIMIT)
-                effect->Reverb.DecayHFLimit = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void reverb_SetParamiv(ALeffect *effect, ALCcontext *context, ALenum param, const ALint *vals)
-{
-    reverb_SetParami(effect, context, param, vals[0]);
-}
-static void reverb_SetParamf(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat val)
-{
-    switch(param)
-    {
-        case AL_REVERB_DENSITY:
-            if(val >= AL_REVERB_MIN_DENSITY &&
-               val <= AL_REVERB_MAX_DENSITY)
-                effect->Reverb.Density = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_REVERB_DIFFUSION:
-            if(val >= AL_REVERB_MIN_DIFFUSION &&
-               val <= AL_REVERB_MAX_DIFFUSION)
-                effect->Reverb.Diffusion = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_REVERB_GAIN:
-            if(val >= AL_REVERB_MIN_GAIN &&
-               val <= AL_REVERB_MAX_GAIN)
-                effect->Reverb.Gain = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_REVERB_GAINHF:
-            if(val >= AL_REVERB_MIN_GAINHF &&
-               val <= AL_REVERB_MAX_GAINHF)
-                effect->Reverb.GainHF = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_REVERB_DECAY_TIME:
-            if(val >= AL_REVERB_MIN_DECAY_TIME &&
-               val <= AL_REVERB_MAX_DECAY_TIME)
-                effect->Reverb.DecayTime = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_REVERB_DECAY_HFRATIO:
-            if(val >= AL_REVERB_MIN_DECAY_HFRATIO &&
-               val <= AL_REVERB_MAX_DECAY_HFRATIO)
-                effect->Reverb.DecayHFRatio = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_REVERB_REFLECTIONS_GAIN:
-            if(val >= AL_REVERB_MIN_REFLECTIONS_GAIN &&
-               val <= AL_REVERB_MAX_REFLECTIONS_GAIN)
-                effect->Reverb.ReflectionsGain = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_REVERB_REFLECTIONS_DELAY:
-            if(val >= AL_REVERB_MIN_REFLECTIONS_DELAY &&
-               val <= AL_REVERB_MAX_REFLECTIONS_DELAY)
-                effect->Reverb.ReflectionsDelay = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_REVERB_LATE_REVERB_GAIN:
-            if(val >= AL_REVERB_MIN_LATE_REVERB_GAIN &&
-               val <= AL_REVERB_MAX_LATE_REVERB_GAIN)
-                effect->Reverb.LateReverbGain = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_REVERB_LATE_REVERB_DELAY:
-            if(val >= AL_REVERB_MIN_LATE_REVERB_DELAY &&
-               val <= AL_REVERB_MAX_LATE_REVERB_DELAY)
-                effect->Reverb.LateReverbDelay = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_REVERB_AIR_ABSORPTION_GAINHF:
-            if(val >= AL_REVERB_MIN_AIR_ABSORPTION_GAINHF &&
-               val <= AL_REVERB_MAX_AIR_ABSORPTION_GAINHF)
-                effect->Reverb.AirAbsorptionGainHF = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_REVERB_ROOM_ROLLOFF_FACTOR:
-            if(val >= AL_REVERB_MIN_ROOM_ROLLOFF_FACTOR &&
-               val <= AL_REVERB_MAX_ROOM_ROLLOFF_FACTOR)
-                effect->Reverb.RoomRolloffFactor = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void reverb_SetParamfv(ALeffect *effect, ALCcontext *context, ALenum param, const ALfloat *vals)
-{
-    reverb_SetParamf(effect, context, param, vals[0]);
-}
-
-static void reverb_GetParami(ALeffect *effect, ALCcontext *context, ALenum param, ALint *val)
-{
-    switch(param)
-    {
-        case AL_REVERB_DECAY_HFLIMIT:
-            *val = effect->Reverb.DecayHFLimit;
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void reverb_GetParamiv(ALeffect *effect, ALCcontext *context, ALenum param, ALint *vals)
-{
-    reverb_GetParami(effect, context, param, vals);
-}
-static void reverb_GetParamf(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat *val)
-{
-    switch(param)
-    {
-        case AL_REVERB_DENSITY:
-            *val = effect->Reverb.Density;
-            break;
-
-        case AL_REVERB_DIFFUSION:
-            *val = effect->Reverb.Diffusion;
-            break;
-
-        case AL_REVERB_GAIN:
-            *val = effect->Reverb.Gain;
-            break;
-
-        case AL_REVERB_GAINHF:
-            *val = effect->Reverb.GainHF;
-            break;
-
-        case AL_REVERB_DECAY_TIME:
-            *val = effect->Reverb.DecayTime;
-            break;
-
-        case AL_REVERB_DECAY_HFRATIO:
-            *val = effect->Reverb.DecayHFRatio;
-            break;
-
-        case AL_REVERB_REFLECTIONS_GAIN:
-            *val = effect->Reverb.ReflectionsGain;
-            break;
-
-        case AL_REVERB_REFLECTIONS_DELAY:
-            *val = effect->Reverb.ReflectionsDelay;
-            break;
-
-        case AL_REVERB_LATE_REVERB_GAIN:
-            *val = effect->Reverb.LateReverbGain;
-            break;
-
-        case AL_REVERB_LATE_REVERB_DELAY:
-            *val = effect->Reverb.LateReverbDelay;
-            break;
-
-        case AL_REVERB_AIR_ABSORPTION_GAINHF:
-            *val = effect->Reverb.AirAbsorptionGainHF;
-            break;
-
-        case AL_REVERB_ROOM_ROLLOFF_FACTOR:
-            *val = effect->Reverb.RoomRolloffFactor;
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void reverb_GetParamfv(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat *vals)
-{
-    reverb_GetParamf(effect, context, param, vals);
-}
-
-
-static void echo_SetParami(ALeffect *effect, ALCcontext *context, ALenum param, ALint val)
-{ (void)effect;(void)param;(void)val; alSetError(context, AL_INVALID_ENUM); }
-static void echo_SetParamiv(ALeffect *effect, ALCcontext *context, ALenum param, const ALint *vals)
-{
-    echo_SetParami(effect, context, param, vals[0]);
-}
-static void echo_SetParamf(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat val)
-{
-    switch(param)
-    {
-        case AL_ECHO_DELAY:
-            if(val >= AL_ECHO_MIN_DELAY && val <= AL_ECHO_MAX_DELAY)
-                effect->Echo.Delay = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_ECHO_LRDELAY:
-            if(val >= AL_ECHO_MIN_LRDELAY && val <= AL_ECHO_MAX_LRDELAY)
-                effect->Echo.LRDelay = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_ECHO_DAMPING:
-            if(val >= AL_ECHO_MIN_DAMPING && val <= AL_ECHO_MAX_DAMPING)
-                effect->Echo.Damping = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_ECHO_FEEDBACK:
-            if(val >= AL_ECHO_MIN_FEEDBACK && val <= AL_ECHO_MAX_FEEDBACK)
-                effect->Echo.Feedback = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_ECHO_SPREAD:
-            if(val >= AL_ECHO_MIN_SPREAD && val <= AL_ECHO_MAX_SPREAD)
-                effect->Echo.Spread = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void echo_SetParamfv(ALeffect *effect, ALCcontext *context, ALenum param, const ALfloat *vals)
-{
-    echo_SetParamf(effect, context, param, vals[0]);
-}
-
-static void echo_GetParami(ALeffect *effect, ALCcontext *context, ALenum param, ALint *val)
-{ (void)effect;(void)param;(void)val; alSetError(context, AL_INVALID_ENUM); }
-static void echo_GetParamiv(ALeffect *effect, ALCcontext *context, ALenum param, ALint *vals)
-{
-    echo_GetParami(effect, context, param, vals);
-}
-static void echo_GetParamf(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat *val)
-{
-    switch(param)
-    {
-        case AL_ECHO_DELAY:
-            *val = effect->Echo.Delay;
-            break;
-
-        case AL_ECHO_LRDELAY:
-            *val = effect->Echo.LRDelay;
-            break;
-
-        case AL_ECHO_DAMPING:
-            *val = effect->Echo.Damping;
-            break;
-
-        case AL_ECHO_FEEDBACK:
-            *val = effect->Echo.Feedback;
-            break;
-
-        case AL_ECHO_SPREAD:
-            *val = effect->Echo.Spread;
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void echo_GetParamfv(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat *vals)
-{
-    echo_GetParamf(effect, context, param, vals);
-}
-
-
-static void mod_SetParamf(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat val)
-{
-    switch(param)
-    {
-        case AL_RING_MODULATOR_FREQUENCY:
-            if(val >= AL_RING_MODULATOR_MIN_FREQUENCY &&
-               val <= AL_RING_MODULATOR_MAX_FREQUENCY)
-                effect->Modulator.Frequency = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        case AL_RING_MODULATOR_HIGHPASS_CUTOFF:
-            if(val >= AL_RING_MODULATOR_MIN_HIGHPASS_CUTOFF &&
-               val <= AL_RING_MODULATOR_MAX_HIGHPASS_CUTOFF)
-                effect->Modulator.HighPassCutoff = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void mod_SetParamfv(ALeffect *effect, ALCcontext *context, ALenum param, const ALfloat *vals)
-{
-    mod_SetParamf(effect, context, param, vals[0]);
-}
-static void mod_SetParami(ALeffect *effect, ALCcontext *context, ALenum param, ALint val)
-{
-    switch(param)
-    {
-        case AL_RING_MODULATOR_FREQUENCY:
-        case AL_RING_MODULATOR_HIGHPASS_CUTOFF:
-            mod_SetParamf(effect, context, param, (ALfloat)val);
-            break;
-
-        case AL_RING_MODULATOR_WAVEFORM:
-            if(val >= AL_RING_MODULATOR_MIN_WAVEFORM &&
-               val <= AL_RING_MODULATOR_MAX_WAVEFORM)
-                effect->Modulator.Waveform = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void mod_SetParamiv(ALeffect *effect, ALCcontext *context, ALenum param, const ALint *vals)
-{
-    mod_SetParami(effect, context, param, vals[0]);
-}
-
-static void mod_GetParami(ALeffect *effect, ALCcontext *context, ALenum param, ALint *val)
-{
-    switch(param)
-    {
-        case AL_RING_MODULATOR_FREQUENCY:
-            *val = (ALint)effect->Modulator.Frequency;
-            break;
-        case AL_RING_MODULATOR_HIGHPASS_CUTOFF:
-            *val = (ALint)effect->Modulator.HighPassCutoff;
-            break;
-        case AL_RING_MODULATOR_WAVEFORM:
-            *val = effect->Modulator.Waveform;
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void mod_GetParamiv(ALeffect *effect, ALCcontext *context, ALenum param, ALint *vals)
-{
-    mod_GetParami(effect, context, param, vals);
-}
-static void mod_GetParamf(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat *val)
-{
-    switch(param)
-    {
-        case AL_RING_MODULATOR_FREQUENCY:
-            *val = effect->Modulator.Frequency;
-            break;
-        case AL_RING_MODULATOR_HIGHPASS_CUTOFF:
-            *val = effect->Modulator.HighPassCutoff;
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void mod_GetParamfv(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat *vals)
-{
-    mod_GetParamf(effect, context, param, vals);
-}
-
-
-static void ded_SetParami(ALeffect *effect, ALCcontext *context, ALenum param, ALint val)
-{ (void)effect;(void)param;(void)val; alSetError(context, AL_INVALID_ENUM); }
-static void ded_SetParamiv(ALeffect *effect, ALCcontext *context, ALenum param, const ALint *vals)
-{
-    ded_SetParami(effect, context, param, vals[0]);
-}
-static void ded_SetParamf(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat val)
-{
-    switch(param)
-    {
-        case AL_DEDICATED_GAIN:
-            if(val >= 0.0f && isfinite(val))
-                effect->Dedicated.Gain = val;
-            else
-                alSetError(context, AL_INVALID_VALUE);
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void ded_SetParamfv(ALeffect *effect, ALCcontext *context, ALenum param, const ALfloat *vals)
-{
-    ded_SetParamf(effect, context, param, vals[0]);
-}
-
-static void ded_GetParami(ALeffect *effect, ALCcontext *context, ALenum param, ALint *val)
-{ (void)effect;(void)param;(void)val; alSetError(context, AL_INVALID_ENUM); }
-static void ded_GetParamiv(ALeffect *effect, ALCcontext *context, ALenum param, ALint *vals)
-{
-    ded_GetParami(effect, context, param, vals);
-}
-static void ded_GetParamf(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat *val)
-{
-    switch(param)
-    {
-        case AL_DEDICATED_GAIN:
-            *val = effect->Dedicated.Gain;
-            break;
-
-        default:
-            alSetError(context, AL_INVALID_ENUM);
-            break;
-    }
-}
-static void ded_GetParamfv(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat *vals)
-{
-    ded_GetParamf(effect, context, param, vals);
-}
-
-
-static void null_SetParami(ALeffect *effect, ALCcontext *context, ALenum param, ALint val)
-{ (void)effect;(void)param;(void)val; alSetError(context, AL_INVALID_ENUM); }
-static void null_SetParamiv(ALeffect *effect, ALCcontext *context, ALenum param, const ALint *vals)
-{ (void)effect;(void)param;(void)vals; alSetError(context, AL_INVALID_ENUM); }
-static void null_SetParamf(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat val)
-{ (void)effect;(void)param;(void)val; alSetError(context, AL_INVALID_ENUM); }
-static void null_SetParamfv(ALeffect *effect, ALCcontext *context, ALenum param, const ALfloat *vals)
-{ (void)effect;(void)param;(void)vals; alSetError(context, AL_INVALID_ENUM); }
-
-static void null_GetParami(ALeffect *effect, ALCcontext *context, ALenum param, ALint *val)
-{ (void)effect;(void)param;(void)val; alSetError(context, AL_INVALID_ENUM); }
-static void null_GetParamiv(ALeffect *effect, ALCcontext *context, ALenum param, ALint *vals)
-{ (void)effect;(void)param;(void)vals; alSetError(context, AL_INVALID_ENUM); }
-static void null_GetParamf(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat *val)
-{ (void)effect;(void)param;(void)val; alSetError(context, AL_INVALID_ENUM); }
-static void null_GetParamfv(ALeffect *effect, ALCcontext *context, ALenum param, ALfloat *vals)
-{ (void)effect;(void)param;(void)vals; alSetError(context, AL_INVALID_ENUM); }
-
-
 ALenum InitEffect(ALeffect *effect)
 {
     InitEffectParams(effect, AL_EFFECT_NULL);
@@ -1264,6 +427,22 @@ static void InitEffectParams(ALeffect *effect, ALenum type)
         effect->GetParamf  = reverb_GetParamf;
         effect->GetParamfv = reverb_GetParamfv;
         break;
+    case AL_EFFECT_CHORUS:
+        effect->Chorus.Waveform = AL_CHORUS_DEFAULT_WAVEFORM;
+        effect->Chorus.Phase = AL_CHORUS_DEFAULT_PHASE;
+        effect->Chorus.Rate = AL_CHORUS_MAX_RATE;
+        effect->Chorus.Depth = AL_CHORUS_DEFAULT_DEPTH;
+        effect->Chorus.Feedback = AL_CHORUS_DEFAULT_FEEDBACK;
+        effect->Chorus.Delay = AL_CHORUS_DEFAULT_DELAY;
+        effect->SetParami  = chorus_SetParami;
+        effect->SetParamiv = chorus_SetParamiv;
+        effect->SetParamf  = chorus_SetParamf;
+        effect->SetParamfv = chorus_SetParamfv;
+        effect->GetParami  = chorus_GetParami;
+        effect->GetParamiv = chorus_GetParamiv;
+        effect->GetParamf  = chorus_GetParamf;
+        effect->GetParamfv = chorus_GetParamfv;
+        break;
     case AL_EFFECT_ECHO:
         effect->Echo.Delay    = AL_ECHO_DEFAULT_DELAY;
         effect->Echo.LRDelay  = AL_ECHO_DEFAULT_LRDELAY;
@@ -1278,6 +457,22 @@ static void InitEffectParams(ALeffect *effect, ALenum type)
         effect->GetParamiv = echo_GetParamiv;
         effect->GetParamf  = echo_GetParamf;
         effect->GetParamfv = echo_GetParamfv;
+        break;
+    case AL_EFFECT_FLANGER:
+        effect->Flanger.Waveform = AL_FLANGER_DEFAULT_WAVEFORM;
+        effect->Flanger.Phase = AL_FLANGER_DEFAULT_PHASE;
+        effect->Flanger.Rate = AL_FLANGER_MAX_RATE;
+        effect->Flanger.Depth = AL_FLANGER_DEFAULT_DEPTH;
+        effect->Flanger.Feedback = AL_FLANGER_DEFAULT_FEEDBACK;
+        effect->Flanger.Delay = AL_FLANGER_DEFAULT_DELAY;
+        effect->SetParami  = flanger_SetParami;
+        effect->SetParamiv = flanger_SetParamiv;
+        effect->SetParamf  = flanger_SetParamf;
+        effect->SetParamfv = flanger_SetParamfv;
+        effect->GetParami  = flanger_GetParami;
+        effect->GetParamiv = flanger_GetParamiv;
+        effect->GetParamf  = flanger_GetParamf;
+        effect->GetParamfv = flanger_GetParamfv;
         break;
     case AL_EFFECT_RING_MODULATOR:
         effect->Modulator.Frequency      = AL_RING_MODULATOR_DEFAULT_FREQUENCY;
@@ -1454,11 +649,10 @@ static const struct {
     DECL(SMALLWATERROOM),
 };
 #undef DECL
-static const ALsizei reverblistsize = COUNTOF(reverblist);
 
 ALvoid LoadReverbPreset(const char *name, ALeffect *effect)
 {
-    int i;
+    size_t i;
 
     if(strcasecmp(name, "NONE") == 0)
     {
@@ -1473,7 +667,7 @@ ALvoid LoadReverbPreset(const char *name, ALeffect *effect)
         InitEffectParams(effect, AL_EFFECT_REVERB);
     else
         InitEffectParams(effect, AL_EFFECT_NULL);
-    for(i = 0;i < reverblistsize;i++)
+    for(i = 0;i < COUNTOF(reverblist);i++)
     {
         const EFXEAXREVERBPROPERTIES *props;
 
@@ -1509,8 +703,8 @@ ALvoid LoadReverbPreset(const char *name, ALeffect *effect)
         effect->Reverb.LFReference = props->flLFReference;
         effect->Reverb.RoomRolloffFactor = props->flRoomRolloffFactor;
         effect->Reverb.DecayHFLimit = props->iDecayHFLimit;
-        break;
+        return;
     }
-    if(i == reverblistsize)
-        WARN("Reverb preset '%s' not found\n", name);
+
+    WARN("Reverb preset '%s' not found\n", name);
 }

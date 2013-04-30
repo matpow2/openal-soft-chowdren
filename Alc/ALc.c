@@ -62,6 +62,9 @@ static struct BackendInfo BackendList[] = {
 #ifdef HAVE_SNDIO
     { "sndio", alc_sndio_init, alc_sndio_deinit, alc_sndio_probe, EmptyFuncs },
 #endif
+#ifdef HAVE_QSA
+    { "qsa", alc_qsa_init, alc_qsa_deinit, alc_qsa_probe, EmptyFuncs },
+#endif
 #ifdef HAVE_MMDEVAPI
     { "mmdevapi", alcMMDevApiInit, alcMMDevApiDeinit, alcMMDevApiProbe, EmptyFuncs },
 #endif
@@ -512,13 +515,13 @@ static const ALCenums enumeration[] = {
     DECL(AL_EFFECT_NULL),
     DECL(AL_EFFECT_REVERB),
     DECL(AL_EFFECT_EAXREVERB),
-#if 0
     DECL(AL_EFFECT_CHORUS),
+#if 0
     DECL(AL_EFFECT_DISTORTION),
 #endif
     DECL(AL_EFFECT_ECHO),
-#if 0
     DECL(AL_EFFECT_FLANGER),
+#if 0
     DECL(AL_EFFECT_FREQUENCY_SHIFTER),
     DECL(AL_EFFECT_VOCAL_MORPHER),
     DECL(AL_EFFECT_PITCH_SHIFTER),
@@ -575,6 +578,20 @@ static const ALCenums enumeration[] = {
     DECL(AL_ECHO_DAMPING),
     DECL(AL_ECHO_FEEDBACK),
     DECL(AL_ECHO_SPREAD),
+
+    DECL(AL_CHORUS_WAVEFORM),
+    DECL(AL_CHORUS_PHASE),
+    DECL(AL_CHORUS_RATE),
+    DECL(AL_CHORUS_DEPTH),
+    DECL(AL_CHORUS_FEEDBACK),
+    DECL(AL_CHORUS_DELAY),
+
+    DECL(AL_FLANGER_WAVEFORM),
+    DECL(AL_FLANGER_PHASE),
+    DECL(AL_FLANGER_RATE),
+    DECL(AL_FLANGER_DEPTH),
+    DECL(AL_FLANGER_FEEDBACK),
+    DECL(AL_FLANGER_DELAY),
 
     DECL(AL_RING_MODULATOR_FREQUENCY),
     DECL(AL_RING_MODULATOR_HIGHPASS_CUTOFF),
@@ -802,6 +819,13 @@ static void alc_initconfig(void)
         else ERR("Failed to open log file '%s'\n", str);
     }
 
+    {
+        char buf[1024] = "";
+        int len = snprintf(buf, sizeof(buf), "%s", BackendList[0].name);
+        for(i = 1;BackendList[i].name;i++)
+            len += snprintf(buf+len, sizeof(buf)-len, ", %s", BackendList[i].name);
+        TRACE("Supported backends: %s\n", buf);
+    }
     ReadALConfig();
 
     capfilter = 0;
