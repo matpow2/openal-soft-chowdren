@@ -318,6 +318,13 @@ void ReadALConfig(void)
             fclose(f);
         }
     }
+    /* Also load config files from the current working directory */
+    f = _wfopen("alsoft.conf", L"rt");
+    if(f)
+    {
+        LoadConfigFromFile(f);
+        fclose(f);
+    }
 }
 #else
 void ReadALConfig(void)
@@ -414,7 +421,7 @@ void ReadALConfig(void)
         }
     }
     /* Also load config files from the current working directory */
-    f = fopen("alsoft.conf", "r");
+    f = al_fopen("alsoft.conf", "r");
     if(f)
     {
         LoadConfigFromFile(f);
