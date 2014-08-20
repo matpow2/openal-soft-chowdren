@@ -13,8 +13,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the
- *  Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- *  Boston, MA  02111-1307, USA.
+ *  Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * Or go to http://www.gnu.org/copyleft/lgpl.html
  */
 
@@ -34,88 +34,88 @@
 
 ALboolean DisabledEffects[MAX_EFFECTS];
 
+extern inline struct ALeffect *LookupEffect(ALCdevice *device, ALuint id);
+extern inline struct ALeffect *RemoveEffect(ALCdevice *device, ALuint id);
+extern inline ALboolean IsReverbEffect(ALenum type);
 
 static void InitEffectParams(ALeffect *effect, ALenum type);
 
 
 AL_API ALvoid AL_APIENTRY alGenEffects(ALsizei n, ALuint *effects)
 {
-    ALCcontext *Context;
-    ALsizei    cur = 0;
+    ALCdevice *device;
+    ALCcontext *context;
+    ALsizei cur;
 
-    Context = GetContextRef();
-    if(!Context) return;
+    context = GetContextRef();
+    if(!context) return;
 
-    al_try
+    if(!(n >= 0))
+        SET_ERROR_AND_GOTO(context, AL_INVALID_VALUE, done);
+
+    device = context->Device;
+    for(cur = 0;cur < n;cur++)
     {
-        ALCdevice *device = Context->Device;
-        ALenum err;
-
-        CHECK_VALUE(Context, n >= 0);
-        for(cur = 0;cur < n;cur++)
+        ALeffect *effect = calloc(1, sizeof(ALeffect));
+        ALenum err = AL_OUT_OF_MEMORY;
+        if(!effect || (err=InitEffect(effect)) != AL_NO_ERROR)
         {
-            ALeffect *effect = calloc(1, sizeof(ALeffect));
-            err = AL_OUT_OF_MEMORY;
-            if(!effect || (err=InitEffect(effect)) != AL_NO_ERROR)
-            {
-                free(effect);
-                alDeleteEffects(cur, effects);
-                al_throwerr(Context, err);
-            }
-
-            err = NewThunkEntry(&effect->id);
-            if(err == AL_NO_ERROR)
-                err = InsertUIntMapEntry(&device->EffectMap, effect->id, effect);
-            if(err != AL_NO_ERROR)
-            {
-                FreeThunkEntry(effect->id);
-                memset(effect, 0, sizeof(ALeffect));
-                free(effect);
-
-                alDeleteEffects(cur, effects);
-                al_throwerr(Context, err);
-            }
-
-            effects[cur] = effect->id;
+            free(effect);
+            alDeleteEffects(cur, effects);
+            SET_ERROR_AND_GOTO(context, err, done);
         }
-    }
-    al_endtry;
 
-    ALCcontext_DecRef(Context);
+        err = NewThunkEntry(&effect->id);
+        if(err == AL_NO_ERROR)
+            err = InsertUIntMapEntry(&device->EffectMap, effect->id, effect);
+        if(err != AL_NO_ERROR)
+        {
+            FreeThunkEntry(effect->id);
+            memset(effect, 0, sizeof(ALeffect));
+            free(effect);
+
+            alDeleteEffects(cur, effects);
+            SET_ERROR_AND_GOTO(context, err, done);
+        }
+
+        effects[cur] = effect->id;
+    }
+
+done:
+    ALCcontext_DecRef(context);
 }
 
 AL_API ALvoid AL_APIENTRY alDeleteEffects(ALsizei n, const ALuint *effects)
 {
-    ALCcontext *Context;
-    ALeffect *Effect;
+    ALCdevice *device;
+    ALCcontext *context;
+    ALeffect *effect;
     ALsizei i;
 
-    Context = GetContextRef();
-    if(!Context) return;
+    context = GetContextRef();
+    if(!context) return;
 
-    al_try
+    if(!(n >= 0))
+        SET_ERROR_AND_GOTO(context, AL_INVALID_VALUE, done);
+
+    device = context->Device;
+    for(i = 0;i < n;i++)
     {
-        ALCdevice *device = Context->Device;
-        CHECK_VALUE(Context, n >= 0);
-        for(i = 0;i < n;i++)
-        {
-            if(effects[i] && LookupEffect(device, effects[i]) == NULL)
-                al_throwerr(Context, AL_INVALID_NAME);
-        }
-
-        for(i = 0;i < n;i++)
-        {
-            if((Effect=RemoveEffect(device, effects[i])) == NULL)
-                continue;
-            FreeThunkEntry(Effect->id);
-
-            memset(Effect, 0, sizeof(*Effect));
-            free(Effect);
-        }
+        if(effects[i] && LookupEffect(device, effects[i]) == NULL)
+            SET_ERROR_AND_GOTO(context, AL_INVALID_NAME, done);
     }
-    al_endtry;
+    for(i = 0;i < n;i++)
+    {
+        if((effect=RemoveEffect(device, effects[i])) == NULL)
+            continue;
+        FreeThunkEntry(effect->id);
 
-    ALCcontext_DecRef(Context);
+        memset(effect, 0, sizeof(*effect));
+        free(effect);
+    }
+
+done:
+    ALCcontext_DecRef(context);
 }
 
 AL_API ALboolean AL_APIENTRY alIsEffect(ALuint effect)
@@ -167,7 +167,7 @@ AL_API ALvoid AL_APIENTRY alEffecti(ALuint effect, ALenum param, ALint value)
         else
         {
             /* Call the appropriate handler */
-            ALeffect_SetParami(ALEffect, Context, param, value);
+            V(ALEffect,setParami)(Context, param, value);
         }
     }
 
@@ -196,7 +196,7 @@ AL_API ALvoid AL_APIENTRY alEffectiv(ALuint effect, ALenum param, const ALint *v
     else
     {
         /* Call the appropriate handler */
-        ALeffect_SetParamiv(ALEffect, Context, param, values);
+        V(ALEffect,setParamiv)(Context, param, values);
     }
 
     ALCcontext_DecRef(Context);
@@ -217,7 +217,7 @@ AL_API ALvoid AL_APIENTRY alEffectf(ALuint effect, ALenum param, ALfloat value)
     else
     {
         /* Call the appropriate handler */
-        ALeffect_SetParamf(ALEffect, Context, param, value);
+        V(ALEffect,setParamf)(Context, param, value);
     }
 
     ALCcontext_DecRef(Context);
@@ -238,7 +238,7 @@ AL_API ALvoid AL_APIENTRY alEffectfv(ALuint effect, ALenum param, const ALfloat 
     else
     {
         /* Call the appropriate handler */
-        ALeffect_SetParamfv(ALEffect, Context, param, values);
+        V(ALEffect,setParamfv)(Context, param, values);
     }
 
     ALCcontext_DecRef(Context);
@@ -263,7 +263,7 @@ AL_API ALvoid AL_APIENTRY alGetEffecti(ALuint effect, ALenum param, ALint *value
         else
         {
             /* Call the appropriate handler */
-            ALeffect_GetParami(ALEffect, Context, param, value);
+            V(ALEffect,getParami)(Context, param, value);
         }
     }
 
@@ -292,7 +292,7 @@ AL_API ALvoid AL_APIENTRY alGetEffectiv(ALuint effect, ALenum param, ALint *valu
     else
     {
         /* Call the appropriate handler */
-        ALeffect_GetParamiv(ALEffect, Context, param, values);
+        V(ALEffect,getParamiv)(Context, param, values);
     }
 
     ALCcontext_DecRef(Context);
@@ -313,7 +313,7 @@ AL_API ALvoid AL_APIENTRY alGetEffectf(ALuint effect, ALenum param, ALfloat *val
     else
     {
         /* Call the appropriate handler */
-        ALeffect_GetParamf(ALEffect, Context, param, value);
+        V(ALEffect,getParamf)(Context, param, value);
     }
 
     ALCcontext_DecRef(Context);
@@ -334,7 +334,7 @@ AL_API ALvoid AL_APIENTRY alGetEffectfv(ALuint effect, ALenum param, ALfloat *va
     else
     {
         /* Call the appropriate handler */
-        ALeffect_GetParamfv(ALEffect, Context, param, values);
+        V(ALEffect,getParamfv)(Context, param, values);
     }
 
     ALCcontext_DecRef(Context);
@@ -368,146 +368,122 @@ static void InitEffectParams(ALeffect *effect, ALenum type)
     switch(type)
     {
     case AL_EFFECT_EAXREVERB:
-        effect->Reverb.Density   = AL_EAXREVERB_DEFAULT_DENSITY;
-        effect->Reverb.Diffusion = AL_EAXREVERB_DEFAULT_DIFFUSION;
-        effect->Reverb.Gain   = AL_EAXREVERB_DEFAULT_GAIN;
-        effect->Reverb.GainHF = AL_EAXREVERB_DEFAULT_GAINHF;
-        effect->Reverb.GainLF = AL_EAXREVERB_DEFAULT_GAINLF;
-        effect->Reverb.DecayTime    = AL_EAXREVERB_DEFAULT_DECAY_TIME;
-        effect->Reverb.DecayHFRatio = AL_EAXREVERB_DEFAULT_DECAY_HFRATIO;
-        effect->Reverb.DecayLFRatio = AL_EAXREVERB_DEFAULT_DECAY_LFRATIO;
-        effect->Reverb.ReflectionsGain   = AL_EAXREVERB_DEFAULT_REFLECTIONS_GAIN;
-        effect->Reverb.ReflectionsDelay  = AL_EAXREVERB_DEFAULT_REFLECTIONS_DELAY;
-        effect->Reverb.ReflectionsPan[0] = AL_EAXREVERB_DEFAULT_REFLECTIONS_PAN_XYZ;
-        effect->Reverb.ReflectionsPan[1] = AL_EAXREVERB_DEFAULT_REFLECTIONS_PAN_XYZ;
-        effect->Reverb.ReflectionsPan[2] = AL_EAXREVERB_DEFAULT_REFLECTIONS_PAN_XYZ;
-        effect->Reverb.LateReverbGain   = AL_EAXREVERB_DEFAULT_LATE_REVERB_GAIN;
-        effect->Reverb.LateReverbDelay  = AL_EAXREVERB_DEFAULT_LATE_REVERB_DELAY;
-        effect->Reverb.LateReverbPan[0] = AL_EAXREVERB_DEFAULT_LATE_REVERB_PAN_XYZ;
-        effect->Reverb.LateReverbPan[1] = AL_EAXREVERB_DEFAULT_LATE_REVERB_PAN_XYZ;
-        effect->Reverb.LateReverbPan[2] = AL_EAXREVERB_DEFAULT_LATE_REVERB_PAN_XYZ;
-        effect->Reverb.EchoTime  = AL_EAXREVERB_DEFAULT_ECHO_TIME;
-        effect->Reverb.EchoDepth = AL_EAXREVERB_DEFAULT_ECHO_DEPTH;
-        effect->Reverb.ModulationTime  = AL_EAXREVERB_DEFAULT_MODULATION_TIME;
-        effect->Reverb.ModulationDepth = AL_EAXREVERB_DEFAULT_MODULATION_DEPTH;
-        effect->Reverb.AirAbsorptionGainHF = AL_EAXREVERB_DEFAULT_AIR_ABSORPTION_GAINHF;
-        effect->Reverb.HFReference = AL_EAXREVERB_DEFAULT_HFREFERENCE;
-        effect->Reverb.LFReference = AL_EAXREVERB_DEFAULT_LFREFERENCE;
-        effect->Reverb.RoomRolloffFactor = AL_EAXREVERB_DEFAULT_ROOM_ROLLOFF_FACTOR;
-        effect->Reverb.DecayHFLimit = AL_EAXREVERB_DEFAULT_DECAY_HFLIMIT;
-        effect->SetParami  = eaxreverb_SetParami;
-        effect->SetParamiv = eaxreverb_SetParamiv;
-        effect->SetParamf  = eaxreverb_SetParamf;
-        effect->SetParamfv = eaxreverb_SetParamfv;
-        effect->GetParami  = eaxreverb_GetParami;
-        effect->GetParamiv = eaxreverb_GetParamiv;
-        effect->GetParamf  = eaxreverb_GetParamf;
-        effect->GetParamfv = eaxreverb_GetParamfv;
+        effect->Props.Reverb.Density   = AL_EAXREVERB_DEFAULT_DENSITY;
+        effect->Props.Reverb.Diffusion = AL_EAXREVERB_DEFAULT_DIFFUSION;
+        effect->Props.Reverb.Gain   = AL_EAXREVERB_DEFAULT_GAIN;
+        effect->Props.Reverb.GainHF = AL_EAXREVERB_DEFAULT_GAINHF;
+        effect->Props.Reverb.GainLF = AL_EAXREVERB_DEFAULT_GAINLF;
+        effect->Props.Reverb.DecayTime    = AL_EAXREVERB_DEFAULT_DECAY_TIME;
+        effect->Props.Reverb.DecayHFRatio = AL_EAXREVERB_DEFAULT_DECAY_HFRATIO;
+        effect->Props.Reverb.DecayLFRatio = AL_EAXREVERB_DEFAULT_DECAY_LFRATIO;
+        effect->Props.Reverb.ReflectionsGain   = AL_EAXREVERB_DEFAULT_REFLECTIONS_GAIN;
+        effect->Props.Reverb.ReflectionsDelay  = AL_EAXREVERB_DEFAULT_REFLECTIONS_DELAY;
+        effect->Props.Reverb.ReflectionsPan[0] = AL_EAXREVERB_DEFAULT_REFLECTIONS_PAN_XYZ;
+        effect->Props.Reverb.ReflectionsPan[1] = AL_EAXREVERB_DEFAULT_REFLECTIONS_PAN_XYZ;
+        effect->Props.Reverb.ReflectionsPan[2] = AL_EAXREVERB_DEFAULT_REFLECTIONS_PAN_XYZ;
+        effect->Props.Reverb.LateReverbGain   = AL_EAXREVERB_DEFAULT_LATE_REVERB_GAIN;
+        effect->Props.Reverb.LateReverbDelay  = AL_EAXREVERB_DEFAULT_LATE_REVERB_DELAY;
+        effect->Props.Reverb.LateReverbPan[0] = AL_EAXREVERB_DEFAULT_LATE_REVERB_PAN_XYZ;
+        effect->Props.Reverb.LateReverbPan[1] = AL_EAXREVERB_DEFAULT_LATE_REVERB_PAN_XYZ;
+        effect->Props.Reverb.LateReverbPan[2] = AL_EAXREVERB_DEFAULT_LATE_REVERB_PAN_XYZ;
+        effect->Props.Reverb.EchoTime  = AL_EAXREVERB_DEFAULT_ECHO_TIME;
+        effect->Props.Reverb.EchoDepth = AL_EAXREVERB_DEFAULT_ECHO_DEPTH;
+        effect->Props.Reverb.ModulationTime  = AL_EAXREVERB_DEFAULT_MODULATION_TIME;
+        effect->Props.Reverb.ModulationDepth = AL_EAXREVERB_DEFAULT_MODULATION_DEPTH;
+        effect->Props.Reverb.AirAbsorptionGainHF = AL_EAXREVERB_DEFAULT_AIR_ABSORPTION_GAINHF;
+        effect->Props.Reverb.HFReference = AL_EAXREVERB_DEFAULT_HFREFERENCE;
+        effect->Props.Reverb.LFReference = AL_EAXREVERB_DEFAULT_LFREFERENCE;
+        effect->Props.Reverb.RoomRolloffFactor = AL_EAXREVERB_DEFAULT_ROOM_ROLLOFF_FACTOR;
+        effect->Props.Reverb.DecayHFLimit = AL_EAXREVERB_DEFAULT_DECAY_HFLIMIT;
+        SET_VTABLE1(ALeaxreverb, effect);
         break;
     case AL_EFFECT_REVERB:
-        effect->Reverb.Density   = AL_REVERB_DEFAULT_DENSITY;
-        effect->Reverb.Diffusion = AL_REVERB_DEFAULT_DIFFUSION;
-        effect->Reverb.Gain   = AL_REVERB_DEFAULT_GAIN;
-        effect->Reverb.GainHF = AL_REVERB_DEFAULT_GAINHF;
-        effect->Reverb.DecayTime    = AL_REVERB_DEFAULT_DECAY_TIME;
-        effect->Reverb.DecayHFRatio = AL_REVERB_DEFAULT_DECAY_HFRATIO;
-        effect->Reverb.ReflectionsGain   = AL_REVERB_DEFAULT_REFLECTIONS_GAIN;
-        effect->Reverb.ReflectionsDelay  = AL_REVERB_DEFAULT_REFLECTIONS_DELAY;
-        effect->Reverb.LateReverbGain   = AL_REVERB_DEFAULT_LATE_REVERB_GAIN;
-        effect->Reverb.LateReverbDelay  = AL_REVERB_DEFAULT_LATE_REVERB_DELAY;
-        effect->Reverb.AirAbsorptionGainHF = AL_REVERB_DEFAULT_AIR_ABSORPTION_GAINHF;
-        effect->Reverb.RoomRolloffFactor = AL_REVERB_DEFAULT_ROOM_ROLLOFF_FACTOR;
-        effect->Reverb.DecayHFLimit = AL_REVERB_DEFAULT_DECAY_HFLIMIT;
-        effect->SetParami  = reverb_SetParami;
-        effect->SetParamiv = reverb_SetParamiv;
-        effect->SetParamf  = reverb_SetParamf;
-        effect->SetParamfv = reverb_SetParamfv;
-        effect->GetParami  = reverb_GetParami;
-        effect->GetParamiv = reverb_GetParamiv;
-        effect->GetParamf  = reverb_GetParamf;
-        effect->GetParamfv = reverb_GetParamfv;
+        effect->Props.Reverb.Density   = AL_REVERB_DEFAULT_DENSITY;
+        effect->Props.Reverb.Diffusion = AL_REVERB_DEFAULT_DIFFUSION;
+        effect->Props.Reverb.Gain   = AL_REVERB_DEFAULT_GAIN;
+        effect->Props.Reverb.GainHF = AL_REVERB_DEFAULT_GAINHF;
+        effect->Props.Reverb.DecayTime    = AL_REVERB_DEFAULT_DECAY_TIME;
+        effect->Props.Reverb.DecayHFRatio = AL_REVERB_DEFAULT_DECAY_HFRATIO;
+        effect->Props.Reverb.ReflectionsGain   = AL_REVERB_DEFAULT_REFLECTIONS_GAIN;
+        effect->Props.Reverb.ReflectionsDelay  = AL_REVERB_DEFAULT_REFLECTIONS_DELAY;
+        effect->Props.Reverb.LateReverbGain   = AL_REVERB_DEFAULT_LATE_REVERB_GAIN;
+        effect->Props.Reverb.LateReverbDelay  = AL_REVERB_DEFAULT_LATE_REVERB_DELAY;
+        effect->Props.Reverb.AirAbsorptionGainHF = AL_REVERB_DEFAULT_AIR_ABSORPTION_GAINHF;
+        effect->Props.Reverb.RoomRolloffFactor = AL_REVERB_DEFAULT_ROOM_ROLLOFF_FACTOR;
+        effect->Props.Reverb.DecayHFLimit = AL_REVERB_DEFAULT_DECAY_HFLIMIT;
+        SET_VTABLE1(ALreverb, effect);
+        break;
+    case AL_EFFECT_AUTOWAH:
+        effect->Props.Autowah.AttackTime = AL_AUTOWAH_DEFAULT_ATTACK_TIME;
+        effect->Props.Autowah.PeakGain = AL_AUTOWAH_DEFAULT_PEAK_GAIN;
+        effect->Props.Autowah.ReleaseTime = AL_AUTOWAH_DEFAULT_RELEASE_TIME;
+        effect->Props.Autowah.Resonance = AL_AUTOWAH_DEFAULT_RESONANCE;
+        SET_VTABLE1(ALautowah, effect);
         break;
     case AL_EFFECT_CHORUS:
-        effect->Chorus.Waveform = AL_CHORUS_DEFAULT_WAVEFORM;
-        effect->Chorus.Phase = AL_CHORUS_DEFAULT_PHASE;
-        effect->Chorus.Rate = AL_CHORUS_MAX_RATE;
-        effect->Chorus.Depth = AL_CHORUS_DEFAULT_DEPTH;
-        effect->Chorus.Feedback = AL_CHORUS_DEFAULT_FEEDBACK;
-        effect->Chorus.Delay = AL_CHORUS_DEFAULT_DELAY;
-        effect->SetParami  = chorus_SetParami;
-        effect->SetParamiv = chorus_SetParamiv;
-        effect->SetParamf  = chorus_SetParamf;
-        effect->SetParamfv = chorus_SetParamfv;
-        effect->GetParami  = chorus_GetParami;
-        effect->GetParamiv = chorus_GetParamiv;
-        effect->GetParamf  = chorus_GetParamf;
-        effect->GetParamfv = chorus_GetParamfv;
+        effect->Props.Chorus.Waveform = AL_CHORUS_DEFAULT_WAVEFORM;
+        effect->Props.Chorus.Phase = AL_CHORUS_DEFAULT_PHASE;
+        effect->Props.Chorus.Rate = AL_CHORUS_DEFAULT_RATE;
+        effect->Props.Chorus.Depth = AL_CHORUS_DEFAULT_DEPTH;
+        effect->Props.Chorus.Feedback = AL_CHORUS_DEFAULT_FEEDBACK;
+        effect->Props.Chorus.Delay = AL_CHORUS_DEFAULT_DELAY;
+        SET_VTABLE1(ALchorus, effect);
+        break;
+    case AL_EFFECT_COMPRESSOR:
+        effect->Props.Compressor.OnOff = AL_COMPRESSOR_DEFAULT_ONOFF;
+        SET_VTABLE1(ALcompressor, effect);
+        break;
+    case AL_EFFECT_DISTORTION:
+        effect->Props.Distortion.Edge = AL_DISTORTION_DEFAULT_EDGE;
+        effect->Props.Distortion.Gain = AL_DISTORTION_DEFAULT_GAIN;
+        effect->Props.Distortion.LowpassCutoff = AL_DISTORTION_DEFAULT_LOWPASS_CUTOFF;
+        effect->Props.Distortion.EQCenter = AL_DISTORTION_DEFAULT_EQCENTER;
+        effect->Props.Distortion.EQBandwidth = AL_DISTORTION_DEFAULT_EQBANDWIDTH;
+        SET_VTABLE1(ALdistortion, effect);
         break;
     case AL_EFFECT_ECHO:
-        effect->Echo.Delay    = AL_ECHO_DEFAULT_DELAY;
-        effect->Echo.LRDelay  = AL_ECHO_DEFAULT_LRDELAY;
-        effect->Echo.Damping  = AL_ECHO_DEFAULT_DAMPING;
-        effect->Echo.Feedback = AL_ECHO_DEFAULT_FEEDBACK;
-        effect->Echo.Spread   = AL_ECHO_DEFAULT_SPREAD;
-        effect->SetParami  = echo_SetParami;
-        effect->SetParamiv = echo_SetParamiv;
-        effect->SetParamf  = echo_SetParamf;
-        effect->SetParamfv = echo_SetParamfv;
-        effect->GetParami  = echo_GetParami;
-        effect->GetParamiv = echo_GetParamiv;
-        effect->GetParamf  = echo_GetParamf;
-        effect->GetParamfv = echo_GetParamfv;
+        effect->Props.Echo.Delay    = AL_ECHO_DEFAULT_DELAY;
+        effect->Props.Echo.LRDelay  = AL_ECHO_DEFAULT_LRDELAY;
+        effect->Props.Echo.Damping  = AL_ECHO_DEFAULT_DAMPING;
+        effect->Props.Echo.Feedback = AL_ECHO_DEFAULT_FEEDBACK;
+        effect->Props.Echo.Spread   = AL_ECHO_DEFAULT_SPREAD;
+        SET_VTABLE1(ALecho, effect);
+        break;
+    case AL_EFFECT_EQUALIZER:
+        effect->Props.Equalizer.LowCutoff = AL_EQUALIZER_DEFAULT_LOW_CUTOFF;
+        effect->Props.Equalizer.LowGain = AL_EQUALIZER_DEFAULT_LOW_GAIN;
+        effect->Props.Equalizer.Mid1Center = AL_EQUALIZER_DEFAULT_MID1_CENTER;
+        effect->Props.Equalizer.Mid1Gain = AL_EQUALIZER_DEFAULT_MID1_GAIN;
+        effect->Props.Equalizer.Mid1Width = AL_EQUALIZER_DEFAULT_MID1_WIDTH;
+        effect->Props.Equalizer.Mid2Center = AL_EQUALIZER_DEFAULT_MID2_CENTER;
+        effect->Props.Equalizer.Mid2Gain = AL_EQUALIZER_DEFAULT_MID2_GAIN;
+        effect->Props.Equalizer.Mid2Width = AL_EQUALIZER_DEFAULT_MID2_WIDTH;
+        effect->Props.Equalizer.HighCutoff = AL_EQUALIZER_DEFAULT_HIGH_CUTOFF;
+        effect->Props.Equalizer.HighGain = AL_EQUALIZER_DEFAULT_HIGH_GAIN;
+        SET_VTABLE1(ALequalizer, effect);
         break;
     case AL_EFFECT_FLANGER:
-        effect->Flanger.Waveform = AL_FLANGER_DEFAULT_WAVEFORM;
-        effect->Flanger.Phase = AL_FLANGER_DEFAULT_PHASE;
-        effect->Flanger.Rate = AL_FLANGER_MAX_RATE;
-        effect->Flanger.Depth = AL_FLANGER_DEFAULT_DEPTH;
-        effect->Flanger.Feedback = AL_FLANGER_DEFAULT_FEEDBACK;
-        effect->Flanger.Delay = AL_FLANGER_DEFAULT_DELAY;
-        effect->SetParami  = flanger_SetParami;
-        effect->SetParamiv = flanger_SetParamiv;
-        effect->SetParamf  = flanger_SetParamf;
-        effect->SetParamfv = flanger_SetParamfv;
-        effect->GetParami  = flanger_GetParami;
-        effect->GetParamiv = flanger_GetParamiv;
-        effect->GetParamf  = flanger_GetParamf;
-        effect->GetParamfv = flanger_GetParamfv;
+        effect->Props.Flanger.Waveform = AL_FLANGER_DEFAULT_WAVEFORM;
+        effect->Props.Flanger.Phase = AL_FLANGER_DEFAULT_PHASE;
+        effect->Props.Flanger.Rate = AL_FLANGER_DEFAULT_RATE;
+        effect->Props.Flanger.Depth = AL_FLANGER_DEFAULT_DEPTH;
+        effect->Props.Flanger.Feedback = AL_FLANGER_DEFAULT_FEEDBACK;
+        effect->Props.Flanger.Delay = AL_FLANGER_DEFAULT_DELAY;
+        SET_VTABLE1(ALflanger, effect);
         break;
     case AL_EFFECT_RING_MODULATOR:
-        effect->Modulator.Frequency      = AL_RING_MODULATOR_DEFAULT_FREQUENCY;
-        effect->Modulator.HighPassCutoff = AL_RING_MODULATOR_DEFAULT_HIGHPASS_CUTOFF;
-        effect->Modulator.Waveform       = AL_RING_MODULATOR_DEFAULT_WAVEFORM;
-        effect->SetParami  = mod_SetParami;
-        effect->SetParamiv = mod_SetParamiv;
-        effect->SetParamf  = mod_SetParamf;
-        effect->SetParamfv = mod_SetParamfv;
-        effect->GetParami  = mod_GetParami;
-        effect->GetParamiv = mod_GetParamiv;
-        effect->GetParamf  = mod_GetParamf;
-        effect->GetParamfv = mod_GetParamfv;
+        effect->Props.Modulator.Frequency      = AL_RING_MODULATOR_DEFAULT_FREQUENCY;
+        effect->Props.Modulator.HighPassCutoff = AL_RING_MODULATOR_DEFAULT_HIGHPASS_CUTOFF;
+        effect->Props.Modulator.Waveform       = AL_RING_MODULATOR_DEFAULT_WAVEFORM;
+        SET_VTABLE1(ALmodulator, effect);
         break;
     case AL_EFFECT_DEDICATED_LOW_FREQUENCY_EFFECT:
     case AL_EFFECT_DEDICATED_DIALOGUE:
-        effect->Dedicated.Gain = 1.0f;
-        effect->SetParami  = ded_SetParami;
-        effect->SetParamiv = ded_SetParamiv;
-        effect->SetParamf  = ded_SetParamf;
-        effect->SetParamfv = ded_SetParamfv;
-        effect->GetParami  = ded_GetParami;
-        effect->GetParamiv = ded_GetParamiv;
-        effect->GetParamf  = ded_GetParamf;
-        effect->GetParamfv = ded_GetParamfv;
+        effect->Props.Dedicated.Gain = 1.0f;
+        SET_VTABLE1(ALdedicated, effect);
         break;
     default:
-        effect->SetParami  = null_SetParami;
-        effect->SetParamiv = null_SetParamiv;
-        effect->SetParamf  = null_SetParamf;
-        effect->SetParamfv = null_SetParamfv;
-        effect->GetParami  = null_GetParami;
-        effect->GetParamiv = null_GetParamiv;
-        effect->GetParamf  = null_GetParamf;
-        effect->GetParamfv = null_GetParamfv;
+        SET_VTABLE1(ALnull, effect);
         break;
     }
     effect->type = type;
@@ -676,33 +652,33 @@ ALvoid LoadReverbPreset(const char *name, ALeffect *effect)
 
         TRACE("Loading reverb '%s'\n", reverblist[i].name);
         props = &reverblist[i].props;
-        effect->Reverb.Density   = props->flDensity;
-        effect->Reverb.Diffusion = props->flDiffusion;
-        effect->Reverb.Gain   = props->flGain;
-        effect->Reverb.GainHF = props->flGainHF;
-        effect->Reverb.GainLF = props->flGainLF;
-        effect->Reverb.DecayTime    = props->flDecayTime;
-        effect->Reverb.DecayHFRatio = props->flDecayHFRatio;
-        effect->Reverb.DecayLFRatio = props->flDecayLFRatio;
-        effect->Reverb.ReflectionsGain   = props->flReflectionsGain;
-        effect->Reverb.ReflectionsDelay  = props->flReflectionsDelay;
-        effect->Reverb.ReflectionsPan[0] = props->flReflectionsPan[0];
-        effect->Reverb.ReflectionsPan[1] = props->flReflectionsPan[1];
-        effect->Reverb.ReflectionsPan[2] = props->flReflectionsPan[2];
-        effect->Reverb.LateReverbGain   = props->flLateReverbGain;
-        effect->Reverb.LateReverbDelay  = props->flLateReverbDelay;
-        effect->Reverb.LateReverbPan[0] = props->flLateReverbPan[0];
-        effect->Reverb.LateReverbPan[1] = props->flLateReverbPan[1];
-        effect->Reverb.LateReverbPan[2] = props->flLateReverbPan[2];
-        effect->Reverb.EchoTime  = props->flEchoTime;
-        effect->Reverb.EchoDepth = props->flEchoDepth;
-        effect->Reverb.ModulationTime  = props->flModulationTime;
-        effect->Reverb.ModulationDepth = props->flModulationDepth;
-        effect->Reverb.AirAbsorptionGainHF = props->flAirAbsorptionGainHF;
-        effect->Reverb.HFReference = props->flHFReference;
-        effect->Reverb.LFReference = props->flLFReference;
-        effect->Reverb.RoomRolloffFactor = props->flRoomRolloffFactor;
-        effect->Reverb.DecayHFLimit = props->iDecayHFLimit;
+        effect->Props.Reverb.Density   = props->flDensity;
+        effect->Props.Reverb.Diffusion = props->flDiffusion;
+        effect->Props.Reverb.Gain   = props->flGain;
+        effect->Props.Reverb.GainHF = props->flGainHF;
+        effect->Props.Reverb.GainLF = props->flGainLF;
+        effect->Props.Reverb.DecayTime    = props->flDecayTime;
+        effect->Props.Reverb.DecayHFRatio = props->flDecayHFRatio;
+        effect->Props.Reverb.DecayLFRatio = props->flDecayLFRatio;
+        effect->Props.Reverb.ReflectionsGain   = props->flReflectionsGain;
+        effect->Props.Reverb.ReflectionsDelay  = props->flReflectionsDelay;
+        effect->Props.Reverb.ReflectionsPan[0] = props->flReflectionsPan[0];
+        effect->Props.Reverb.ReflectionsPan[1] = props->flReflectionsPan[1];
+        effect->Props.Reverb.ReflectionsPan[2] = props->flReflectionsPan[2];
+        effect->Props.Reverb.LateReverbGain   = props->flLateReverbGain;
+        effect->Props.Reverb.LateReverbDelay  = props->flLateReverbDelay;
+        effect->Props.Reverb.LateReverbPan[0] = props->flLateReverbPan[0];
+        effect->Props.Reverb.LateReverbPan[1] = props->flLateReverbPan[1];
+        effect->Props.Reverb.LateReverbPan[2] = props->flLateReverbPan[2];
+        effect->Props.Reverb.EchoTime  = props->flEchoTime;
+        effect->Props.Reverb.EchoDepth = props->flEchoDepth;
+        effect->Props.Reverb.ModulationTime  = props->flModulationTime;
+        effect->Props.Reverb.ModulationDepth = props->flModulationDepth;
+        effect->Props.Reverb.AirAbsorptionGainHF = props->flAirAbsorptionGainHF;
+        effect->Props.Reverb.HFReference = props->flHFReference;
+        effect->Props.Reverb.LFReference = props->flLFReference;
+        effect->Props.Reverb.RoomRolloffFactor = props->flRoomRolloffFactor;
+        effect->Props.Reverb.DecayHFLimit = props->iDecayHFLimit;
         return;
     }
 

@@ -13,8 +13,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the
- *  Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- *  Boston, MA  02111-1307, USA.
+ *  Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * Or go to http://www.gnu.org/copyleft/lgpl.html
  */
 
@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <alloca.h>
 
 #include "alMain.h"
 #include "alu.h"
@@ -180,7 +181,7 @@ static ALCenum ca_open_playback(ALCdevice *device, const ALCchar *deviceName)
         return ALC_INVALID_VALUE;
     }
 
-    device->DeviceName = strdup(deviceName);
+    al_string_copy_cstr(&device->DeviceName, deviceName);
     device->ExtraData = data;
     return ALC_NO_ERROR;
 }
@@ -577,6 +578,8 @@ static ALCenum ca_open_capture(ALCdevice *device, const ALCchar *deviceName)
     if(data->ring == NULL)
         goto error;
 
+    al_string_copy_cstr(&device->DeviceName, deviceName);
+
     return ALC_NO_ERROR;
 
 error:
@@ -677,8 +680,6 @@ static const BackendFuncs ca_funcs = {
     ca_stop_capture,
     ca_capture_samples,
     ca_available_samples,
-    ALCdevice_LockDefault,
-    ALCdevice_UnlockDefault,
     ALCdevice_GetLatencyDefault
 };
 
